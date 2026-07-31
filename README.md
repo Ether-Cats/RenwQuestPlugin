@@ -4,13 +4,6 @@
 
 ---
 
-## 📸 插件展示
-
-![任务菜单示例](https://your-image-link.com/menu.png)
-![完成提示示例](https://your-image-link.com/complete.png)
-
----
-
 ## ✨ 主要功能
 
 - **每日任务**：每天随机分配 10 个任务，次日 0 点自动重置。
