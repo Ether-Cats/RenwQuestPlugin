@@ -3,7 +3,10 @@ package top.etca.renw;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import net.milkbowl.vault.economy.Economy;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.RegisteredServiceProvider;
 
 import java.io.File;
 import java.io.FileReader;
@@ -13,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class QuestManager {
     private final renw plugin;
     private final Gson gson = new Gson();
+    private Economy economy = null;  // Vault经济接口
 
     // 全局任务池
     public List<Quest> dailyPool = new ArrayList<>();
@@ -23,6 +27,27 @@ public class QuestManager {
 
     public QuestManager(renw plugin) {
         this.plugin = plugin;
+        setupEconomy();  // 初始化经济系统
+    }
+
+    // ---------- 初始化 Vault 经济 ----------
+    private void setupEconomy() {
+        if (Bukkit.getPluginManager().getPlugin("Vault") == null) {
+            plugin.getLogger().warning("未找到 Vault 插件，奖励将使用经验值代替");
+            return;
+        }
+        RegisteredServiceProvider<Economy> rsp =
+                Bukkit.getServicesManager().getRegistration(Economy.class);
+        if (rsp == null) {
+            plugin.getLogger().warning("未注册任何经济服务，奖励将使用经验值代替");
+            return;
+        }
+        economy = rsp.getProvider();
+        if (economy != null) {
+            plugin.getLogger().info("已成功接入 Vault 经济系统（" + economy.getName() + "）");
+        } else {
+            plugin.getLogger().warning("无法获取经济服务实例，奖励将使用经验值代替");
+        }
     }
 
     // ---------- 加载任务池 ----------
@@ -67,7 +92,6 @@ public class QuestManager {
     }
 
     // ---------- 获取玩家数据，不存在则初始化 ----------
-    // 关键修改：将 private 改为 public
     public PlayerQuestData getOrCreateData(Player player) {
         UUID uuid = player.getUniqueId();
         PlayerQuestData data = playerDataMap.get(uuid);
@@ -78,9 +102,11 @@ public class QuestManager {
             regenerateWeekly(player, data);
         } else {
             long now = System.currentTimeMillis();
+            // 每日重置（24小时）
             if (now - data.lastDailyReset >= 24 * 60 * 60 * 1000) {
                 regenerateDaily(player, data);
             }
+            // 每周重置（7天）
             if (now - data.lastWeeklyReset >= 7 * 24 * 60 * 60 * 1000) {
                 regenerateWeekly(player, data);
             }
@@ -114,15 +140,13 @@ public class QuestManager {
         data.lastWeeklyReset = System.currentTimeMillis();
     }
 
-    // ---------- 获取玩家当前任务列表（供GUI使用） ----------
+    // ---------- 获取玩家当前任务列表 ----------
     public List<QuestProgress> getDailyQuests(Player player) {
-        PlayerQuestData data = getOrCreateData(player);
-        return data.dailyQuests;
+        return getOrCreateData(player).dailyQuests;
     }
 
     public List<QuestProgress> getWeeklyQuests(Player player) {
-        PlayerQuestData data = getOrCreateData(player);
-        return data.weeklyQuests;
+        return getOrCreateData(player).weeklyQuests;
     }
 
     // ---------- 根据任务ID获取任务定义 ----------
@@ -139,7 +163,6 @@ public class QuestManager {
     // ---------- 添加进度 ----------
     public void addProgress(Player player, String conditionType, String target, int amount) {
         PlayerQuestData data = getOrCreateData(player);
-        boolean anyUpdated = false;
 
         for (QuestProgress prog : data.dailyQuests) {
             if (prog.completed || prog.claimed) continue;
@@ -152,7 +175,6 @@ public class QuestManager {
                     prog.completed = true;
                     player.sendMessage("§a[任务] §f" + q.name + " §a已完成！请打开菜单领取奖励。");
                 }
-                anyUpdated = true;
             }
         }
 
@@ -167,12 +189,11 @@ public class QuestManager {
                     prog.completed = true;
                     player.sendMessage("§a[任务] §f" + q.name + " §a已完成！请打开菜单领取奖励。");
                 }
-                anyUpdated = true;
             }
         }
     }
 
-    // ---------- 领取奖励 ----------
+    // ---------- 领取奖励（使用 Vault 或降级为经验） ----------
     public boolean claimReward(Player player, String questId) {
         PlayerQuestData data = getOrCreateData(player);
         QuestProgress prog = findProgress(data, questId);
@@ -182,12 +203,24 @@ public class QuestManager {
         Quest q = getQuestById(questId);
         if (q == null) return false;
 
-        // 发放奖励（示例：经验）
-        player.sendMessage("§e你已领取任务 §f" + q.name + " §e的奖励！");
-        player.giveExp(q.reward);  // 可替换为Vault经济
+        // 发放奖励
+        boolean success = false;
+        if (economy != null) {
+            // 使用 Vault 经济系统
+            economy.depositPlayer(player, q.reward);
+            player.sendMessage("§e你已领取任务 §f" + q.name + " §e的奖励！获得了 " + q.reward + " " + economy.currencyNamePlural());
+            success = true;
+        } else {
+            // 降级方案：经验值
+            player.giveExp(q.reward);
+            player.sendMessage("§e你已领取任务 §f" + q.name + " §e的奖励！（货币 " + q.reward + " ）");
+            success = true;
+        }
 
-        prog.claimed = true;
-        return true;
+        if (success) {
+            prog.claimed = true;
+        }
+        return success;
     }
 
     private QuestProgress findProgress(PlayerQuestData data, String questId) {
@@ -200,8 +233,8 @@ public class QuestManager {
         return null;
     }
 
-    // ---------- 数据持久化（暂未实现） ----------
+    // ---------- 数据持久化（待实现） ----------
     public void savePlayerData() {
-        // 后续可将 playerDataMap 保存为 JSON 文件
+        // 将 playerDataMap 序列化为 JSON 文件（暂略）
     }
 }
