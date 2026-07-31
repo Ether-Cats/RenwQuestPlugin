@@ -1,0 +1,8 @@
+name: renw
+version: '1.0'
+main: top.etca.renw.renw
+api-version: '1.21'
+commands:
+  renw:
+    description: 打开任务菜单
+    usage: /renw
