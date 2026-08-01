@@ -6,7 +6,7 @@
 
 ## 截图展示
 <img width="590" height="152" alt="Image" src="https://github.com/user-attachments/assets/1727e9b1-d604-4161-88d8-f649910b72c6" />
-
+<img width="549" height="158" alt="Image" src="https://github.com/user-attachments/assets/56182ca1-8a61-4993-b121-6682eff09fb8" />
 
 ---
 
