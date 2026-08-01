@@ -4,6 +4,12 @@
 
 ---
 
+## 截图展示
+<img width="590" height="152" alt="Image" src="https://github.com/user-attachments/assets/1727e9b1-d604-4161-88d8-f649910b72c6" />
+
+
+---
+
 ## ✨ 主要功能
 
 - **每日任务**：每天随机分配 10 个任务，次日 0 点自动重置。
