@@ -1,0 +1,12 @@
+id: "daily_kill_zombie"
+name: "§c屠夫"
+description: "击杀 20 只僵尸"
+type: "DAILY"
+experience: 80
+priority: 2
+
+objectives:
+  - type: "ENTITY_KILL"
+    target: "ZOMBIE"
+    amount: 20
+

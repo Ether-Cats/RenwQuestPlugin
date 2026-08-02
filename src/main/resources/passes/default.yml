@@ -1,0 +1,49 @@
+# 默认通行证配置
+id: "default"
+name: "§6§l赛季通行证"
+max-level: 100
+
+# 经验曲线
+experience:
+  base: 100
+  multiplier: 1.05
+
+# 奖励配置（格式：等级 -> 档位 -> 奖励列表）
+rewards:
+  1:
+    FREE:
+      - "money:50"
+      - "exp:10"
+    PREMIUM:
+      - "money:100"
+      - "item:DIAMOND:1"
+    VIP:
+      - "money:200"
+      - "item:DIAMOND:3"
+      - "command:give {player} diamond_sword 1"
+  
+  5:
+    FREE:
+      - "money:100"
+    PREMIUM:
+      - "money:300"
+      - "item:EMERALD:5"
+    VIP:
+      - "money:500"
+      - "item:EMERALD:10"
+      - "permission:siyuan.vip.fly:30"
+  
+  10:
+    FREE:
+      - "money:200"
+      - "exp:50"
+    PREMIUM:
+      - "money:500"
+      - "item:DIAMOND_BLOCK:1"
+    VIP:
+      - "money:1000"
+      - "item:DIAMOND_BLOCK:3"
+      - "title:vip_title"
+
+  # 其他等级可自行添加...
+

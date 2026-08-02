@@ -1,0 +1,55 @@
+services:
+  siyuan-mysql:
+    image: mysql:8.0
+    container_name: siyuan-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${SIYUAN_MYSQL_ROOT_PASSWORD:-siyuan_root_2024}
+      MYSQL_DATABASE: siyuan
+      MYSQL_USER: siyuan
+      MYSQL_PASSWORD: ${SIYUAN_MYSQL_PASSWORD:-siyuan_pass_2024}
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - siyuan-mysql-data:/var/lib/mysql
+      - ../sql:/docker-entrypoint-initdb.d:ro
+    networks:
+      - siyuan-net
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --transaction-isolation=READ-COMMITTED
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  siyuan-redis:
+    image: redis:7-alpine
+    container_name: siyuan-redis
+    restart: unless-stopped
+    environment:
+      SIYUAN_REDIS_PASSWORD: ${SIYUAN_REDIS_PASSWORD:-siyuan_redis_2024}
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - siyuan-redis-data:/data
+    networks:
+      - siyuan-net
+    command: redis-server --appendonly yes --requirepass ${SIYUAN_REDIS_PASSWORD:-siyuan_redis_2024} --maxmemory 256mb --maxmemory-policy noeviction
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $${SIYUAN_REDIS_PASSWORD:-siyuan_redis_2024} ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  siyuan-mysql-data:
+  siyuan-redis-data:
+
+networks:
+  siyuan-net:
+    driver: bridge
+    name: siyuan-net

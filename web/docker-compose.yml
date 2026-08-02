@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: postgres:18.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-siyuan_web}
+      POSTGRES_USER: ${POSTGRES_USER:-siyuan_web}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - siyuan-web-postgres:/var/lib/postgresql/data
+    networks:
+      - siyuan-web-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgres://${POSTGRES_USER:-siyuan_web}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-siyuan_web}
+      SIYUAN_WEB_API_KEY: ${SIYUAN_WEB_API_KEY:?set SIYUAN_WEB_API_KEY in .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+      DB_SSL: ${DB_SSL:-false}
+    ports:
+      - "${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-8080}:8080"
+    networks:
+      - siyuan-web-internal
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  siyuan-web-postgres:
+
+networks:
+  siyuan-web-internal:
+    driver: bridge

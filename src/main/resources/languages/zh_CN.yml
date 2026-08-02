@@ -1,0 +1,44 @@
+# 简体中文语言文件
+no-permission: "&c你没有权限执行此操作！"
+player-only: "&c只有玩家才能使用此命令！"
+reload-success: "&a插件已重载！"
+unknown-command: "&c未知子命令，输入 &e/{0} help &c查看帮助"
+
+pass:
+  level-up: "&6✦ &e恭喜！通行证等级提升至 &6Lv.{0}&e！"
+  reward-claim: "&a✔ &f已领取 Lv.{0} &7[{1}] &f档位的奖励"
+  already-claimed: "&c该奖励已领取过了"
+  not-completed: "&c你还未达到该等级"
+  tier-upgraded: "&6✦ &e恭喜！你的通行证档位升级为 &6{0}&e！"
+  no-tier: "&c你当前档位无法领取此奖励"
+  no-reward: "&7该等级没有配置此档位奖励"
+  insufficient-funds: "&c余额不足！需要 &e{0}"
+
+quest:
+  complete: "&a✔ &f任务完成：&e{0}"
+  exp-gained: "&7  &f获得 &e{0} &f通行证经验"
+  progress: "&7  &f进度 &e{0}/{1}"
+  daily-reset: "&6[思源] &f今日任务已重置！"
+  weekly-reset: "&6[思源] &f本周任务已重置！"
+
+shop:
+  list-success: "&a成功上架 &e{0} &a个商品，价格 &e{1} &a/个！"
+  buy-success: "&a购买成功！花费 &e{0}&a，获得 &e{1}x{2}"
+  no-money: "&c余额不足！需要 &e{0}，你的余额：&e{1}"
+  delist-success: "&a已下架商品，物品已退回背包"
+  inv-full: "&c背包已满！请先清理背包再购买"
+  own-item: "&c不能购买自己上架的商品"
+  listing-fee: "&7支付手续费 &e{0}"
+
+waypoint:
+  add-success: "&a传送点 &e{0} &a已保存！花费 &e{1}"
+  del-success: "&e已删除传送点，返还 &a{0}"
+  tp-success: "&a已传送至 &e{0}"
+  no-money: "&c余额不足！"
+  full: "&c传送点已达上限（{0}/{0}）"
+  tp-cost: "&7传送花费 &e{0}"
+
+season:
+  started: "&6[思源] &e赛季 &6{0} &e已开始！"
+  ended: "&6[思源] &e赛季 &6{0} &e已结束，数据已重置。"
+  no-active: "&c当前没有进行中的赛季"

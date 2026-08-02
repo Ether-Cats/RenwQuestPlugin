@@ -1,0 +1,12 @@
+id: "weekly_craft_tools"
+name: "§b工具大师"
+description: "合成 10 把铁镐"
+type: "WEEKLY"
+experience: 300
+priority: 1
+
+objectives:
+  - type: "ITEM_CRAFT"
+    target: "IRON_PICKAXE"
+    amount: 10
+
