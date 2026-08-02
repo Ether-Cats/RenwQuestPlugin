@@ -89,7 +89,7 @@ export function normalizeMenu(input) {
   }
   items.sort((a, b) => a.slot - b.slot);
   return {
-    title: String(input.title ?? input.menu_title ?? "&6思源菜单").slice(0, 128),
+    title: String(input.title ?? input.menu_title ?? "&6思渊菜单").slice(0, 128),
     size,
     permission: String(input.permission ?? input.open_permission ?? "").slice(0, 128),
     openActions: actionList(input.openActions ?? input.open_commands),

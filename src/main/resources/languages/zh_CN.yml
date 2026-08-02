@@ -18,8 +18,8 @@ quest:
   complete: "&a✔ &f任务完成：&e{0}"
   exp-gained: "&7  &f获得 &e{0} &f通行证经验"
   progress: "&7  &f进度 &e{0}/{1}"
-  daily-reset: "&6[思源] &f今日任务已重置！"
-  weekly-reset: "&6[思源] &f本周任务已重置！"
+  daily-reset: "&6[思渊] &f今日任务已重置！"
+  weekly-reset: "&6[思渊] &f本周任务已重置！"
 
 shop:
   list-success: "&a成功上架 &e{0} &a个商品，价格 &e{1} &a/个！"
@@ -39,6 +39,6 @@ waypoint:
   tp-cost: "&7传送花费 &e{0}"
 
 season:
-  started: "&6[思源] &e赛季 &6{0} &e已开始！"
-  ended: "&6[思源] &e赛季 &6{0} &e已结束，数据已重置。"
+  started: "&6[思渊] &e赛季 &6{0} &e已开始！"
+  ended: "&6[思渊] &e赛季 &6{0} &e已结束，数据已重置。"
   no-active: "&c当前没有进行中的赛季"

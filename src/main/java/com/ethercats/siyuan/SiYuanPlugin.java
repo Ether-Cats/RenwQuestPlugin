@@ -117,7 +117,7 @@ public class SiYuanPlugin extends JavaPlugin {
         remoteMenuSyncService.start();
 
         getLogger().info("=============================");
-        getLogger().info("  SiYuan 思源插件已启动 v" + getDescription().getVersion());
+        getLogger().info("  SiYuan 思渊插件已启动 v" + getDescription().getVersion());
         getLogger().info("  数据库: MySQL | 缓存: " + (redis.isEnabled() ? "Redis" : "关闭"));
         getLogger().info("  经济: " + (economyService.isAvailable() ? "Vault" : "不可用"));
         getLogger().info("=============================");
@@ -144,7 +144,7 @@ public class SiYuanPlugin extends JavaPlugin {
         if (redis != null) redis.close();
         if (db    != null) db.close();
 
-        getLogger().info("SiYuan 思源插件已卸载，数据已保存。");
+        getLogger().info("SiYuan 思渊插件已卸载，数据已保存。");
     }
 
     // 每日/每周重置任务调度

@@ -15,7 +15,7 @@ public class MessageService {
     private final JavaPlugin plugin;
     private final Map<String, String> messages = new HashMap<>();
     private String lang = "zh_CN";
-    private String prefix = "§6[思源] §r";
+    private String prefix = "§6[思渊] §r";
 
     public MessageService(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -25,7 +25,7 @@ public class MessageService {
     public void load() {
         messages.clear();
         lang = plugin.getConfig().getString("language", "zh_CN");
-        prefix = color(plugin.getConfig().getString("prefix", "&6[思源] &r"));
+        prefix = color(plugin.getConfig().getString("prefix", "&6[思渊] &r"));
 
         File langFile = new File(plugin.getDataFolder(), "languages/" + lang + ".yml");
         if (langFile.exists()) {
@@ -55,8 +55,8 @@ public class MessageService {
         messages.put("quest.complete",      "&a✔ &f任务完成：&e{0}");
         messages.put("quest.exp-gained",    "&7  &f获得 &e{0} &f通行证经验");
         messages.put("quest.progress",      "&7  &f进度 &e{0}/{1}");
-        messages.put("quest.daily-reset",   "&6[思源] &f今日任务已重置！");
-        messages.put("quest.weekly-reset",  "&6[思源] &f本周任务已重置！");
+        messages.put("quest.daily-reset",   "&6[思渊] &f今日任务已重置！");
+        messages.put("quest.weekly-reset",  "&6[思渊] &f本周任务已重置！");
         // 商店
         messages.put("shop.list-success",   "&a成功上架 &e{0} &a个商品！");
         messages.put("shop.buy-success",    "&a购买成功！花费 &e{0}&a，获得 &e{1}x{2}");
@@ -71,8 +71,8 @@ public class MessageService {
         messages.put("waypoint.no-money",   "&c余额不足！");
         messages.put("waypoint.full",       "&c传送点已达上限（{0}/{0}）");
         // 赛季
-        messages.put("season.started",      "&6[思源] &e赛季 &6{0} &e已开始！");
-        messages.put("season.ended",        "&6[思源] &e赛季 &6{0} &e已结束，数据已重置。");
+        messages.put("season.started",      "&6[思渊] &e赛季 &6{0} &e已开始！");
+        messages.put("season.ended",        "&6[思渊] &e赛季 &6{0} &e已结束，数据已重置。");
         messages.put("season.no-active",    "&c当前没有进行中的赛季");
     }
 
@@ -111,4 +111,3 @@ public class MessageService {
         return s == null ? "" : ChatColor.translateAlternateColorCodes('&', s);
     }
 }
-
