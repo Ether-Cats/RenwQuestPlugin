@@ -1,10 +1,10 @@
 # SiYuan 思源
 
-SiYuan 是面向 Paper 1.21.4 的聚合插件，把通行证（ArcPass 风格）、任务、玩家市场和个人传送点统一到一个运行时中。项目保留了四个原插件的核心职责，但统一使用 MySQL 数据、Vault 经济和同一套 GUI/权限边界，减少重复配置和跨插件状态不一致。
+SiYuan 是面向 Paper 1.21.4 的聚合插件，把通行证、任务、玩家市场和个人传送点统一到一个运行时中。项目在既有功能边界上做了优化整合，并统一使用 MySQL 数据、Vault 经济和同一套 GUI/权限边界，减少重复配置和跨插件状态不一致。
 
 ## 整合来源
 
-SiYuan 以 [RenwQuestPlugin](https://github.com/Ether-Cats/RenwQuestPlugin)、[CSD](https://github.com/Ether-Cats/CSD)、[SHOP](https://github.com/Ether-Cats/SHOP) 与 [GFMenu](https://github.com/levindurant303/GFMenu) 的功能边界为参考进行重构，而不是在服务器内同时加载四个独立插件。任务、通行证、市场、传送点和菜单统一为 `/gc` 命令、同一权限模型与可审计数据层；菜单兼容常用 GFMenu/DeluxeMenus/TrMenu 配置写法。
+SiYuan 以 [RenwQuestPlugin](https://github.com/Ether-Cats/RenwQuestPlugin)、[CSD](https://github.com/Ether-Cats/CSD)、[SHOP](https://github.com/Ether-Cats/SHOP) 与 [GFMenu](https://github.com/levindurant303/GFMenu) 的功能边界为参考进行优化整合，而不是在服务器内同时加载四个独立插件。任务、通行证、市场、传送点和菜单统一为 `/gc` 命令、同一权限模型与可审计数据层；菜单兼容常用 GFMenu/DeluxeMenus/TrMenu 配置写法，并为后续赛季玩法、跨服运营与管理工具扩展预留边界。
 
 ## 当前能力
 

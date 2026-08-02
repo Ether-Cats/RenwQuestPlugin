@@ -9,7 +9,7 @@
     <version>1.0.0</version>
     <packaging>jar</packaging>
     <name>SiYuan</name>
-    <description>SiYuan - Integrated Minecraft Server Plugin (ArcPass + Quest + Shop + Waypoint)</description>
+    <description>SiYuan - Integrated Pass, Quest, Shop and Waypoint Plugin</description>
 
     <properties>
         <java.version>21</java.version>
