@@ -91,6 +91,57 @@ waypoint:
 
 `assignment-limits` 的 `0` 表示该任务类型全部显示；其他正数表示按玩家 UUID 和周期稳定抽取的数量。传送失败或世界未加载时，传送费用会自动退回。
 
+### 任务类型、命令与完整示例
+
+`/gc quest` 只负责打开任务界面，不会创建任务。`[]` 代表可选参数，`<>` 代表必填参数：
+
+| 玩家输入 | 说明 | 进度周期 |
+| --- | --- | --- |
+| `/gc quest` 或 `/gc quest daily` | 打开每日任务。 | 在 `daily-reset-hour` / `daily-reset-minute` 指定的服务器时间重置。 |
+| `/gc quest weekly` | 打开每周任务。 | 在 `weekly-reset-day` 指定的星期重置。 |
+| `/gc quest seasonal` | 打开赛季任务。 | 绑定当前赛季；建议先执行 `/gc season start <赛季名称>`。 |
+| `/gc quest story` | 打开剧情任务。 | 持续保留，不自动重置。 |
+| `/gc quest challenge` | 打开挑战任务。 | 持续保留，不自动重置。 |
+
+`/gc quest reset` 仅限 `siyuan.admin`，并且只会立即重置每日任务。它适合测试，不应作为日常运营的重置方式。完成任务后，玩家要在对应任务界面点击已完成的任务领取奖励。
+
+任务文件放在 `plugins/siyuan/quests/<任务类型>/`。目录和 `type` 请保持一致：`daily` 对应 `DAILY`、`weekly` 对应 `WEEKLY`、`seasonal` 对应 `SEASONAL`、`story` 对应 `STORY`、`challenge` 对应 `CHALLENGE`。新增或修改 YAML 后执行 `/gc reload`。
+
+下面是可直接使用的每日任务：
+
+```yaml
+# plugins/siyuan/quests/daily/mine_iron.yml
+id: "daily_mine_iron"       # 全服唯一 ID；已有玩家进度时不要改动
+name: "&f铁匠学徒"          # 支持 Minecraft 颜色代码
+description: "挖掘 32 个铁矿石"
+type: "DAILY"
+experience: 60               # 领取时给予的通行证经验，受 quest.exp-multiplier 影响
+priority: 10                 # 数字越小，GUI 中排序越靠前
+objectives:                  # 一项或多项；所有目标完成后才能领取
+  - type: "BLOCK_BREAK"
+    target: "IRON_ORE"
+    amount: 32
+rewards:                     # 可省略；完成后与经验一起发放
+  - "money:30"
+  - "item:IRON_INGOT:4"
+```
+
+一个任务可以有多个 `objectives`，例如先击杀僵尸再吃面包；每项都达到 `amount` 后才算完成。`target` 不区分大小写，写成 `ANY` 可匹配该事件的所有目标。
+
+| `objectives[].type` | `target` 写法 | 示例 | 何时累计 |
+| --- | --- | --- | --- |
+| `BLOCK_BREAK` | 方块 Material 名或 `ANY` | `IRON_ORE`、`STONE` | 玩家破坏方块。 |
+| `ENTITY_KILL` | 实体类型或 `ANY` | `ZOMBIE` | 玩家击杀实体。 |
+| `ITEM_CRAFT` | 物品 Material 名或 `ANY` | `IRON_PICKAXE` | 玩家合成物品。 |
+| `ITEM_CONSUME` | 物品 Material 名或 `ANY` | `BREAD` | 玩家食用或使用可消耗物品。 |
+| `PLAYER_JUMP` | 固定写 `ANY` | `ANY` | 玩家正常跳跃。 |
+| `DAMAGE_DEALT` | 被攻击实体类型或 `ANY` | `ZOMBIE` | 玩家造成伤害；按伤害整数累计。 |
+| `DAMAGE_TAKEN` | 攻击者实体类型或 `ANY` | `ZOMBIE` | 玩家受到伤害；按伤害整数累计。 |
+
+支持的额外奖励与通行证奖励相同：`money:30`（Vault 金币，受全局奖励倍率和每日上限约束）、`exp:50`（额外通行证经验）、`item:DIAMOND:2`、`command:give {player} emerald 1`、`permission:siyuan.vip.fly:30`（需要 LuckPerms）和 `title:vip_title`（需要配置 `integrations.title-command`）。`{player}` 与 `{uuid}` 可用于 `command:`。
+
+创建后的检查流程为：保存 YAML -> 管理员执行 `/gc reload` -> 玩家输入相应的 `/gc quest <任务类型>` -> 完成事件目标 -> 在任务 GUI 点击领取。若任务没有出现，先检查 `type` 与目录是否一致，再检查该类型的 `assignment-limits` 是否小于任务池数量。
+
 ## 菜单格式与动作
 
 菜单位于 `plugins/siyuan/menus/`。siyuan 可加载 DeluxeMenus 样式 YAML、常见 TrMenu `layout`/`Icons` YAML 以及旧版顶层槽位格式；游戏内保存统一输出 DeluxeMenus 样式 YAML，便于 Web 版本控制。

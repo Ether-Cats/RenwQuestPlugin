@@ -23,7 +23,7 @@ siyuan 以 [RenwQuestPlugin](https://github.com/Ether-Cats/RenwQuestPlugin)、[C
 ```text
 /gc                         打开主界面
 /gc pass                    通行证
-/gc quest <类型>            任务
+/gc quest [任务类型]        任务（省略类型时打开每日任务）
 /gc shop                    全球商店
 /gc wp [add 名称 图标]      传送点
 /gc menu open <名称>        打开菜单
@@ -37,6 +37,41 @@ siyuan 以 [RenwQuestPlugin](https://github.com/Ether-Cats/RenwQuestPlugin)、[C
 ```
 
 游戏内编辑器允许管理员直接放置、移动和移除物品；关闭界面自动保存。原菜单物品使用会话 PDC 标记，不能作为实体物品带出，作为模板放入的真实物品会在保存后返还。
+
+## 任务快速上手
+
+`/gc quest` 是打开任务界面，不是创建任务的命令。方括号 `[]` 表示参数可省略，尖括号 `<>` 表示必须填写。玩家可直接输入以下命令：
+
+| 输入命令 | 打开的任务 | 任务进度何时重置 |
+| --- | --- | --- |
+| `/gc quest` 或 `/gc quest daily` | 每日任务 | 按 `config.yml` 的 `daily-reset-hour` / `daily-reset-minute` 重置。 |
+| `/gc quest weekly` | 每周任务 | 在 `weekly-reset-day` 指定的星期重置。 |
+| `/gc quest seasonal` | 赛季任务 | 绑定当前赛季；正式使用前先由管理员开启赛季。 |
+| `/gc quest story` | 剧情任务 | 不自动重置，进度持续保留。 |
+| `/gc quest challenge` | 挑战任务 | 不自动重置，进度持续保留。 |
+
+例如，玩家要查看今天的挖矿任务，输入 `/gc quest daily`；完成目标后再次打开该界面，点击显示“点击领取奖励”的任务即可领取。管理员可用 `/gc quest reset` 强制重置**每日**任务，仅用于维护或测试。
+
+新任务不是在聊天栏逐项输入，而是新增一个 YAML 文件。下面这个完整例子会创建“每天挖 32 个铁矿石”的任务：
+
+```yaml
+# plugins/siyuan/quests/daily/mine_iron.yml
+id: "daily_mine_iron"       # 全服唯一，创建后不要随意更改
+name: "&f铁匠学徒"
+description: "挖掘 32 个铁矿石"
+type: "DAILY"               # 与所在目录保持一致：DAILY / WEEKLY / SEASONAL / STORY / CHALLENGE
+experience: 60               # 领取时给予的通行证经验
+priority: 10                 # 数字越小，在同类任务中越靠前
+objectives:
+  - type: "BLOCK_BREAK"
+    target: "IRON_ORE"
+    amount: 32
+rewards:                     # 可选的额外奖励
+  - "money:30"
+  - "item:IRON_INGOT:4"
+```
+
+保存文件后由管理员执行 `/gc reload`，再用 `/gc quest daily` 检查。`assignment-limits.daily` 不是任务总数限制，而是从每日任务池稳定分配给每位玩家的数量；设为 `0` 才会让该类型的全部任务都显示。更多事件类型、奖励格式和 YAML 示例见 [任务配置说明](docs/CONFIGURATION.md#任务类型命令与完整示例)。
 
 ## 构建
 
