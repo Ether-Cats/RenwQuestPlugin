@@ -265,7 +265,7 @@ public class SiYuanCommand implements CommandExecutor, TabCompleter {
     }
 
     private void sendHelp(CommandSender sender, String label) {
-        sender.sendMessage("§6========= §eSiYuan 思渊 §6=========");
+        sender.sendMessage("§6========= §esiyuan 思渊 §6=========");
         sender.sendMessage("§e/" + label + " reload §7- 重载配置");
         sender.sendMessage("§e/" + label + " pass §7- 通行证界面");
         sender.sendMessage("§e/" + label + " quest [daily|weekly|seasonal|story|challenge] §7- 任务界面");

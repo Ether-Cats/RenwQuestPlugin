@@ -8,8 +8,8 @@
     <artifactId>siyuan</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
-    <name>SiYuan</name>
-    <description>SiYuan - Integrated Pass, Quest, Shop and Waypoint Plugin</description>
+    <name>siyuan</name>
+    <description>siyuan - Integrated Pass, Quest, Shop and Waypoint Plugin</description>
 
     <properties>
         <java.version>21</java.version>
@@ -120,7 +120,7 @@
 
     <build>
         <defaultGoal>clean package</defaultGoal>
-        <finalName>SiYuan-${project.version}</finalName>
+        <finalName>siyuan-${project.version}</finalName>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>

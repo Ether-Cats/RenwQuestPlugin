@@ -52,7 +52,7 @@ public class GuiManager implements Listener {
 
     public void openMain(Player player) {
         MenuHolder holder = new MenuHolder("main", 0, null, 0);
-        Inventory inv = create(holder, 45, "&6&lSiYuan &8| &f功能中心");
+        Inventory inv = create(holder, 45, "&6&lsiyuan &8| &f思渊功能中心");
         fill(inv, Material.BLACK_STAINED_GLASS_PANE);
         inv.setItem(10, item(Material.GOLDEN_CHESTPLATE, "&6赛季通行证", List.of("&7查看等级、档位和奖励", "", "&e点击打开")));
         inv.setItem(12, item(Material.WRITABLE_BOOK, "&e任务中心", List.of("&7每日、每周和赛季任务", "", "&e点击打开")));

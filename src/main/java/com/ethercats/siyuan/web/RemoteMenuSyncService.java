@@ -98,7 +98,7 @@ public final class RemoteMenuSyncService {
         managedVersions.clear();
         managedVersions.putAll(previous.versions());
         operations = Executors.newSingleThreadExecutor(runnable -> {
-            Thread thread = new Thread(runnable, "SiYuan-MenuSync");
+            Thread thread = new Thread(runnable, "siyuan-menu-sync");
             thread.setDaemon(true);
             return thread;
         });
@@ -165,8 +165,8 @@ public final class RemoteMenuSyncService {
                 .timeout(Duration.ofSeconds(Math.max(3, plugin.getConfig().getInt("menu-sync.timeout-seconds", 8))))
                 .header("Content-Type", "application/json")
                 .header("Accept", "application/json")
-                .header("X-SiYuan-Sync-Token", syncToken)
-                .header("X-SiYuan-Actor", safeActor.isBlank() ? "game" : "game-" + safeActor)
+                .header("X-siyuan-Sync-Token", syncToken)
+                .header("X-siyuan-Actor", safeActor.isBlank() ? "game" : "game-" + safeActor)
                 .PUT(HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8))
                 .build();
             HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
@@ -215,7 +215,7 @@ public final class RemoteMenuSyncService {
                 .timeout(Duration.ofSeconds(Math.max(3,
                     plugin.getConfig().getInt("menu-sync.timeout-seconds", 8))))
                 .header("Accept", "application/json")
-                .header("X-SiYuan-Sync-Token", syncToken)
+                .header("X-siyuan-Sync-Token", syncToken)
                 .GET();
             if (etag != null) request.header("If-None-Match", etag);
             HttpResponse<InputStream> response = client.send(request.build(), HttpResponse.BodyHandlers.ofInputStream());
@@ -290,7 +290,7 @@ public final class RemoteMenuSyncService {
         for (String oldKey : previous.versions().keySet()) {
             if (!files.containsKey(oldKey)) Files.deleteIfExists(remoteDirectory.resolve(oldKey + ".yml"));
         }
-        // Move only files that a prior SiYuan sync explicitly marked as owned.
+        // Move only files that a prior siyuan sync explicitly marked as owned.
         for (String oldKey : previous.versions().keySet()) {
             deleteLegacyManagedFile(menuDirectory.resolve(oldKey + ".yml"), oldKey);
             deleteLegacyManagedFile(menuDirectory.resolve(oldKey + ".yaml"), oldKey);

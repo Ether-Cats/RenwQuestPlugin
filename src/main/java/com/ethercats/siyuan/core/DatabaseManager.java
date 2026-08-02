@@ -49,7 +49,7 @@ public class DatabaseManager {
         hc.setConnectionTimeout(30000);
         hc.setIdleTimeout(600000);
         hc.setMaxLifetime(1800000);
-        hc.setPoolName("SiYuan-Pool");
+        hc.setPoolName("siyuan-pool");
         hc.addDataSourceProperty("cachePrepStmts", "true");
         hc.addDataSourceProperty("prepStmtCacheSize", "250");
         hc.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");

@@ -8,7 +8,7 @@ const database = createDatabase(config);
 await database.migrate();
 const app = createApp(config, database);
 const server = app.listen(config.port, "0.0.0.0", () => {
-  console.log(`SiYuan Menu Web listening on port ${config.port}`);
+  console.log(`siyuan Menu Web listening on port ${config.port}`);
 });
 
 async function shutdown(signal) {

@@ -1,10 +1,10 @@
-# SiYuan 思渊
+# siyuan 思渊
 
-SiYuan 是面向 Paper 1.21.4 的聚合插件，把通行证、任务、玩家市场和个人传送点统一到一个运行时中。项目在既有功能边界上做了优化整合，并统一使用 MySQL 数据、Vault 经济和同一套 GUI/权限边界，减少重复配置和跨插件状态不一致。
+siyuan 是面向 Paper 1.21.4 的聚合插件，把通行证、任务、玩家市场和个人传送点统一到一个运行时中。项目在既有功能边界上做了优化整合，并统一使用 MySQL 数据、Vault 经济和同一套 GUI/权限边界，减少重复配置和跨插件状态不一致。
 
 ## 整合来源
 
-SiYuan 以 [RenwQuestPlugin](https://github.com/Ether-Cats/RenwQuestPlugin)、[CSD](https://github.com/Ether-Cats/CSD)、[SHOP](https://github.com/Ether-Cats/SHOP) 与 [GFMenu](https://github.com/levindurant303/GFMenu) 的功能边界为参考进行优化整合，而不是在服务器内同时加载四个独立插件。任务、通行证、市场、传送点和菜单统一为 `/gc` 命令、同一权限模型与可审计数据层；菜单兼容常用 GFMenu/DeluxeMenus/TrMenu 配置写法，并为后续赛季玩法、跨服运营与管理工具扩展预留边界。
+siyuan 以 [RenwQuestPlugin](https://github.com/Ether-Cats/RenwQuestPlugin)、[CSD](https://github.com/Ether-Cats/CSD)、[SHOP](https://github.com/Ether-Cats/SHOP) 与 [GFMenu](https://github.com/levindurant303/GFMenu) 的功能边界为参考进行优化整合，而不是在服务器内同时加载四个独立插件。任务、通行证、市场、传送点和菜单统一为 `/gc` 命令、同一权限模型与可审计数据层；菜单兼容常用 GFMenu/DeluxeMenus/TrMenu 配置写法，并为后续赛季玩法、跨服运营与管理工具扩展预留边界。
 
 ## 当前能力
 
@@ -46,7 +46,7 @@ SiYuan 以 [RenwQuestPlugin](https://github.com/Ether-Cats/RenwQuestPlugin)、[C
 mvn -DskipTests package
 ```
 
-产物为 `target/SiYuan-1.0.0.jar`。项目使用 Shade 隔离 HikariCP、Jedis 和 Gson；Paper、Vault、PlaceholderAPI、LuckPerms 由服务器提供。
+产物为 `target/siyuan-1.0.0.jar`。项目使用 Shade 隔离 HikariCP、Jedis 和 Gson；Paper、Vault、PlaceholderAPI、LuckPerms 由服务器提供。
 
 发布前的最小验证命令如下；Maven 的 `package` 会执行插件单元测试，Web 端测试会覆盖认证、菜单编解码、版本冲突和服务器同步接口：
 
@@ -68,7 +68,7 @@ SIYUAN_REDIS_PASSWORD=...
 docker compose -f docker/docker-compose.yml up -d
 ```
 
-服务器插件配置默认连接 `127.0.0.1:3307` 和 `127.0.0.1:6380`。生产环境应修改 `plugins/SiYuan/config.yml` 的凭据，并限制数据库只监听游戏服内网。
+服务器插件配置默认连接 `127.0.0.1:3307` 和 `127.0.0.1:6380`。生产环境应修改 `plugins/siyuan/config.yml` 的凭据，并限制数据库只监听游戏服内网。
 
 任务完成后在任务 GUI 点击领取；每日/每周从任务池按玩家 UUID 和周期稳定抽取，数量可由 `quest.assignment-limits` 调整。`/gc wp add <名称> [图标]` 可创建带自定义名称和图标的传送点。
 

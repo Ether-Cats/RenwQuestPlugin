@@ -8,7 +8,7 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Normalizes the small action language shared by SiYuan menus, DeluxeMenus
+ * Normalizes the small action language shared by siyuan menus, DeluxeMenus
  * imports, and the newer GFMenu-compatible syntax.
  */
 public final class MenuActionCodec {

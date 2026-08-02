@@ -1,6 +1,6 @@
-# SiYuan Menu Web
+# siyuan 思渊菜单管理
 
-独立部署的 SiYuan 菜单控制面。它不运行在 Paper 进程内，也不要求 Minecraft 服务器开放入站端口：管理员通过浏览器编辑并发布菜单，游戏服使用各自的服务器级令牌定时拉取已发布版本，也可把游戏内编辑写回同一版本链。
+独立部署的 siyuan 菜单控制面。它不运行在 Paper 进程内，也不要求 Minecraft 服务器开放入站端口：管理员通过浏览器编辑并发布菜单，游戏服使用各自的服务器级令牌定时拉取已发布版本，也可把游戏内编辑写回同一版本链。
 
 ## 为什么使用 PostgreSQL
 
@@ -22,7 +22,7 @@ Web 控制面使用 PostgreSQL，游戏玩法数据仍可继续使用现有 MySQ
 
 - 1 至 6 行、每行 9 格的可视化编辑器，格子点击编辑和拖动换位。
 - 材质、数量、名称、Lore、左/右/任意点击动作、发光、头颅所有者与打开权限编辑。
-- DeluxeMenus 标准 `items:` YAML、SiYuan JSON 导入导出；兼容旧版顶层 slot 配置。
+- DeluxeMenus 标准 `items:` YAML、siyuan JSON 导入导出；兼容旧版顶层 slot 配置。
 - 保存生成不可变版本，发布与保存分离，可选择历史版本重新发布。
 - 多服务器隔离，每台服务器只读写自己名下的菜单版本。
 - 乐观锁防止并发覆盖，所有创建、保存、发布和令牌轮换写审计日志。
@@ -98,7 +98,7 @@ Web 服务是无状态的，可以在负载均衡器后运行多个实例，只�
 ```http
 GET /api/sync/lobby-1 HTTP/1.1
 Host: menu.example.com
-X-SiYuan-Sync-Token: <该服务器创建时返回的令牌>
+X-siyuan-Sync-Token: <该服务器创建时返回的令牌>
 If-None-Match: "<上次响应的 checksum>"
 ```
 
@@ -129,7 +129,7 @@ If-None-Match: "<上次响应的 checksum>"
 
 ```http
 PUT /api/sync/lobby-1/menus/main HTTP/1.1
-X-SiYuan-Sync-Token: <服务器令牌>
+X-siyuan-Sync-Token: <服务器令牌>
 Content-Type: application/json
 
 {"baseVersion":7,"yaml":"menu_title: Main\nsize: 9\nitems: {}\n","publish":true}
@@ -143,7 +143,7 @@ Content-Type: application/json
 
 ```http
 X-API-Key: <SIYUAN_WEB_API_KEY>
-X-SiYuan-Actor: admin-name
+X-siyuan-Actor: admin-name
 ```
 
 主要接口：

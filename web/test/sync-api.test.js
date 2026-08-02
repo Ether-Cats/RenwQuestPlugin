@@ -58,14 +58,14 @@ test("server token pulls and publishes menus without the admin key", async (cont
   assert.equal(rejected.status, 401);
 
   const pulled = await fetch(`${base}/api/sync/lobby-1`, {
-    headers: { "X-SiYuan-Sync-Token": syncToken }
+    headers: { "X-siyuan-Sync-Token": syncToken }
   });
   assert.equal(pulled.status, 200);
   assert.deepEqual((await pulled.json()).menus, []);
 
   const uploaded = await fetch(`${base}/api/sync/lobby-1/menus/main`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", "X-SiYuan-Sync-Token": syncToken },
+    headers: { "Content-Type": "application/json", "X-siyuan-Sync-Token": syncToken },
     body: JSON.stringify({ yaml: "menu_title: Main\nsize: 9\nitems: {}\n", publish: true })
   });
   assert.equal(uploaded.status, 200);
@@ -76,7 +76,7 @@ test("server token pulls and publishes menus without the admin key", async (cont
 
   const newer = await fetch(`${base}/api/sync/lobby-1/menus/main`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", "X-SiYuan-Sync-Token": syncToken },
+    headers: { "Content-Type": "application/json", "X-siyuan-Sync-Token": syncToken },
     body: JSON.stringify({
       baseVersion: 1,
       yaml: "menu_title: '&6Current'\nsize: 9\nitems: {}\n"
@@ -86,7 +86,7 @@ test("server token pulls and publishes menus without the admin key", async (cont
 
   const conflicted = await fetch(`${base}/api/sync/lobby-1/menus/main`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", "X-SiYuan-Sync-Token": syncToken },
+    headers: { "Content-Type": "application/json", "X-siyuan-Sync-Token": syncToken },
     body: JSON.stringify({
       baseVersion: 1,
       yaml: "menu_title: '&6Outdated'\nsize: 9\nitems: {}\n"

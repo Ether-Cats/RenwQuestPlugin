@@ -23,7 +23,7 @@ function toast(message, error = false) {
 }
 
 async function api(path, options = {}) {
-  const headers = { "X-API-Key": state.apiKey, "X-SiYuan-Actor": state.actor, ...options.headers };
+  const headers = { "X-API-Key": state.apiKey, "X-siyuan-Actor": state.actor, ...options.headers };
   if (options.body && !(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
   const response = await fetch(path, { ...options, headers });
   if (response.status === 204) return null;
@@ -286,7 +286,7 @@ async function publishMenu() {
 async function exportCurrent(format = "yaml") {
   if (!state.menu) return;
   const response = await fetch(`/api/menus/${state.menu.id}/export?format=${format}&version=${state.menu.selectedVersion}`, {
-    headers: { "X-API-Key": state.apiKey, "X-SiYuan-Actor": state.actor }
+    headers: { "X-API-Key": state.apiKey, "X-siyuan-Actor": state.actor }
   });
   if (!response.ok) return showError(new Error("导出失败"));
   const blob = await response.blob();

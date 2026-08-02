@@ -2,7 +2,7 @@
   "name": "siyuan-menu-web",
   "version": "1.0.0",
   "private": true,
-  "description": "Remote menu editor and versioned configuration API for SiYuan",
+  "description": "Remote menu editor and versioned configuration API for siyuan",
   "type": "module",
   "scripts": {
     "start": "node src/server.js",

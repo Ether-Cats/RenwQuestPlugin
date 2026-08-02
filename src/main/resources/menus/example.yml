@@ -1,4 +1,4 @@
-# GFMenu/DeluxeMenus 常用子集示例。复制到 plugins/SiYuan/menus/ 后按需修改。
+# GFMenu/DeluxeMenus 常用子集示例。复制到 plugins/siyuan/menus/ 后按需修改。
 menu_title: "&6思渊菜单"
 size: 27
 open_requires_permission: false
@@ -8,7 +8,7 @@ items:
     material: NETHER_STAR
     display_name: "&e欢迎 {player}"
     lore:
-      - "&7这是 SiYuan 的动态菜单示例"
+      - "&7这是 siyuan 的动态菜单示例"
       - "&e点击发送消息"
     left_click_commands:
       - "[player] msg: &a菜单动作已执行"

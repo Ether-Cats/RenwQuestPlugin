@@ -1,6 +1,6 @@
-# SiYuan 配置参考
+# siyuan 配置参考
 
-SiYuan 把游戏功能和菜单控制面拆开：游戏服使用 MySQL 和可选 Redis，Web 菜单管理使用 PostgreSQL。两套数据库不需要互相直连。
+siyuan 把游戏功能和菜单控制面拆开：游戏服使用 MySQL 和可选 Redis，Web 菜单管理使用 PostgreSQL。两套数据库不需要互相直连。
 
 ## 前置条件
 
@@ -9,7 +9,9 @@ SiYuan 把游戏功能和菜单控制面拆开：游戏服使用 MySQL 和可选
 - PlaceholderAPI、LuckPerms 是可选项。
 - `siyuan.admin` 是所有管理员命令和游戏内菜单编辑权限。
 
-将 `target/SiYuan-1.0.0.jar` 放入服务器 `plugins/` 目录，首次启动会生成 `plugins/SiYuan/config.yml`、通行证、任务和菜单示例文件。不要用开发默认密码直接暴露到公网。
+将 `target/siyuan-1.0.0.jar` 放入服务器 `plugins/` 目录，首次启动会生成 `plugins/siyuan/config.yml`、通行证、任务和菜单示例文件。不要用开发默认密码直接暴露到公网。
+
+从旧实验构建升级时，先将 `plugins/SiYuan/` 重命名为 `plugins/siyuan/`，再启动新版本；插件名改为小写后，Paper 会以新目录作为数据目录。
 
 ## MySQL 与 Redis
 
@@ -32,12 +34,12 @@ redis:
   password: "replace-with-a-long-random-password"
 ```
 
-MySQL 账户只应被授权访问 SiYuan 自己的数据库。远程数据库启用 `ssl: true`，并在防火墙只允许游戏服内网地址访问。Redis 不可用时，通行证奖励额度会退化为本机计数；多游戏服共享限额时必须启用同一 Redis，且建议保持 `noeviction`。
+MySQL 账户只应被授权访问 siyuan 自己的数据库。远程数据库启用 `ssl: true`，并在防火墙只允许游戏服内网地址访问。Redis 不可用时，通行证奖励额度会退化为本机计数；多游戏服共享限额时必须启用同一 Redis，且建议保持 `noeviction`。
 
 本项目提供仅用于本机开发的 MySQL + Redis Compose：
 
 ```bash
-cd /root/codexproject/SiYuan
+cd /root/codexproject/siyuan
 docker compose -f docker/docker-compose.yml up -d
 ```
 
@@ -91,9 +93,9 @@ waypoint:
 
 ## 菜单格式与动作
 
-菜单位于 `plugins/SiYuan/menus/`。SiYuan 可加载 DeluxeMenus 样式 YAML、常见 TrMenu `layout`/`Icons` YAML 以及旧版顶层槽位格式；游戏内保存统一输出 DeluxeMenus 样式 YAML，便于 Web 版本控制。
+菜单位于 `plugins/siyuan/menus/`。siyuan 可加载 DeluxeMenus 样式 YAML、常见 TrMenu `layout`/`Icons` YAML 以及旧版顶层槽位格式；游戏内保存统一输出 DeluxeMenus 样式 YAML，便于 Web 版本控制。
 
-游戏内编辑每次写入前都会把原文件复制到 `plugins/SiYuan/menus/.backups/`，用于回退 TrMenu 转换或未建模的第三方字段。编辑后的规范格式是 DeluxeMenus YAML；复杂 TrMenu 的独立绑定和布局扩展应先通过 Web 导入检查，再在生产服编辑。
+游戏内编辑每次写入前都会把原文件复制到 `plugins/siyuan/menus/.backups/`，用于回退 TrMenu 转换或未建模的第三方字段。编辑后的规范格式是 DeluxeMenus YAML；复杂 TrMenu 的独立绑定和布局扩展应先通过 Web 导入检查，再在生产服编辑。
 
 ```yaml
 menu_title: "&6主菜单"
@@ -153,4 +155,4 @@ menu-sync:
 
 Web 可以部署在另一台机器。游戏服只通过出站 HTTPS 拉取已发布菜单并上传游戏内保存，不需要开放任何入站 HTTP 端口，也不需要让 PostgreSQL 暴露给 Minecraft 主机。Web 部署、PostgreSQL 选项和反向代理要求见 [`web/README.md`](../web/README.md)。
 
-远程文件会隔离在 `plugins/SiYuan/menus/.remote/<server-id>/`。同名本地菜单不会被远程更新覆盖，插件会拒绝同步并在控制台报告冲突；先改名、迁移或删除本地菜单后再执行 `/gc menu sync`。游戏内保存若发现 Web 版本已改变也会被 Web 拒绝，先同步再重新编辑即可避免覆盖另一位管理员的改动。
+远程文件会隔离在 `plugins/siyuan/menus/.remote/<server-id>/`。同名本地菜单不会被远程更新覆盖，插件会拒绝同步并在控制台报告冲突；先改名、迁移或删除本地菜单后再执行 `/gc menu sync`。游戏内保存若发现 Web 版本已改变也会被 Web 拒绝，先同步再重新编辑即可避免覆盖另一位管理员的改动。

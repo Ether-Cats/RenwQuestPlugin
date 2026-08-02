@@ -1,4 +1,4 @@
--- SiYuan Database Schema
+-- siyuan Database Schema
 -- UTF8MB4, InnoDB
 
 SET NAMES utf8mb4;

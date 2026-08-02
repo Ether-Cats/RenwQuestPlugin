@@ -1,8 +1,8 @@
-# SiYuan 架构说明
+# siyuan 架构说明
 
 ## 组件边界
 
-`SiYuanPlugin` 只负责生命周期和依赖装配。业务模块通过服务接口访问数据库、Redis、Vault 和消息系统：
+插件入口只负责生命周期和依赖装配。业务模块通过服务接口访问数据库、Redis、Vault 和消息系统：
 
 ```text
 Paper events/commands

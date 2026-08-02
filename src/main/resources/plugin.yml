@@ -1,4 +1,4 @@
-name: SiYuan
+name: siyuan
 version: ${project.version}
 main: com.ethercats.siyuan.SiYuanPlugin
 api-version: '1.21'
@@ -12,7 +12,7 @@ softdepend:
 
 commands:
   gc:
-    description: SiYuan 聚合功能主命令
+    description: siyuan 聚合功能主命令
     usage: /gc <pass|quest|season|shop|wp|menu|reload|help>
     permission: siyuan.use
 

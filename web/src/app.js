@@ -98,7 +98,7 @@ export function createApp(config, database) {
       if (!origin || config.corsOrigins.includes(origin)) return callback(null, true);
       return callback(new HttpError(403, "该来源不允许访问 API"));
     },
-    allowedHeaders: ["Content-Type", "X-API-Key", "X-SiYuan-Actor", "X-SiYuan-Sync-Token", "If-None-Match"],
+    allowedHeaders: ["Content-Type", "X-API-Key", "X-siyuan-Actor", "X-siyuan-Sync-Token", "If-None-Match"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
   }));
   app.use(express.json({ limit: "1mb" }));
