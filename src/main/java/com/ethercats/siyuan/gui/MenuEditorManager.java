@@ -170,6 +170,45 @@ public final class MenuEditorManager implements Listener {
             normalized);
     }
 
+    public void listItemActions(Player player, int slot, String requestedType) {
+        EditorSession session = sessions.get(player.getUniqueId());
+        if (session == null) {
+            player.sendMessage("§c请先使用 /gc menu edit 打开一个菜单");
+            return;
+        }
+        if (slot < 0 || slot >= session.inventory.getSize()) {
+            player.sendMessage("§c槽位必须在 0 到 " + (session.inventory.getSize() - 1) + " 之间");
+            return;
+        }
+        ItemStack current = session.inventory.getItem(slot);
+        if (current == null || current.getType().isAir()) {
+            player.sendMessage("§c该槽位没有物品");
+            return;
+        }
+        String type = requestedType == null ? "" : requestedType.toLowerCase(Locale.ROOT);
+        if (!type.equals("left") && !type.equals("right") && !type.equals("all")) {
+            player.sendMessage("§c点击类型只能是 left、right 或 all");
+            return;
+        }
+        String token = getEditorToken(current);
+        ActionBinding binding = token == null
+            ? new ActionBinding(List.of(), List.of(), List.of())
+            : session.actions.getOrDefault(token, new ActionBinding(List.of(), List.of(), List.of()));
+        List<String> actions = switch (type) {
+            case "right" -> binding.rightActions;
+            case "all" -> binding.allActions;
+            default -> binding.leftActions;
+        };
+        if (actions.isEmpty()) {
+            player.sendMessage("§7槽位 " + slot + " 的 " + type + " 动作列表为空");
+            return;
+        }
+        player.sendMessage("§6槽位 " + slot + " 的 " + type + " 动作：");
+        for (int index = 0; index < actions.size(); index++) {
+            player.sendMessage("§e" + index + " §7" + actions.get(index));
+        }
+    }
+
     public void setItemAction(Player player, int slot, String requestedType, String requestedOperation, String requestedValue) {
         EditorSession session = sessions.get(player.getUniqueId());
         if (session == null) {

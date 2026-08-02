@@ -171,6 +171,7 @@ public class SiYuanCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("§6/gc menu open <菜单名> §7打开菜单");
             sender.sendMessage("§6/gc menu edit <菜单名> [行数] [标题] §7游戏内编辑菜单");
             sender.sendMessage("§6/gc menu save|cancel §7保存或放弃编辑");
+            sender.sendMessage("§6/gc menu action list <槽位> <left|right|all> §7查看动作序号");
             sender.sendMessage("§6/gc menu action <槽位> <left|right|all> <set|add|remove|clear> [动作|序号] §7编辑点击动作");
             sender.sendMessage("§6/gc menu title|permission <值> §7设置标题或打开权限");
             sender.sendMessage("§6/gc menu list §7列出菜单");
@@ -217,6 +218,18 @@ public class SiYuanCommand implements CommandExecutor, TabCompleter {
             case "action" -> {
                 if (!sender.hasPermission("siyuan.admin")) { plugin.getMessageService().send(sender, "no-permission"); return; }
                 if (!(sender instanceof Player player)) { plugin.getMessageService().send(sender, "player-only"); return; }
+                if (args.length >= 2 && args[1].equalsIgnoreCase("list")) {
+                    if (args.length != 4) {
+                        sender.sendMessage("§c用法: /gc menu action list <槽位> <left|right|all>");
+                        return;
+                    }
+                    try {
+                        plugin.getMenuEditorManager().listItemActions(player, Integer.parseInt(args[2]), args[3]);
+                    } catch (NumberFormatException ex) {
+                        sender.sendMessage("§c槽位必须是整数");
+                    }
+                    return;
+                }
                 if (args.length < 4) {
                     sender.sendMessage("§c用法: /gc menu action <槽位> <left|right|all> <set|add|remove|clear> [动作|序号]");
                     return;
@@ -372,10 +385,13 @@ public class SiYuanCommand implements CommandExecutor, TabCompleter {
             } else if (args[0].equalsIgnoreCase("menu") && args[1].equalsIgnoreCase("permission")) {
                 completions.add("none");
             }
+        } else if (args.length == 3 && args[0].equalsIgnoreCase("menu") && args[1].equalsIgnoreCase("action")) {
+            completions.add("list");
         } else if (args.length == 4 && args[0].equalsIgnoreCase("menu") && args[1].equalsIgnoreCase("action")) {
             completions.addAll(List.of("left", "right", "all"));
         } else if (args.length == 5 && args[0].equalsIgnoreCase("menu") && args[1].equalsIgnoreCase("action")) {
-            completions.addAll(List.of("set", "add", "remove", "clear", "command:", "console:", "tell:", "menu:", "sound:", "catcher:", "book:", "close"));
+            if (args[2].equalsIgnoreCase("list")) completions.addAll(List.of("left", "right", "all"));
+            else completions.addAll(List.of("set", "add", "remove", "clear", "command:", "console:", "tell:", "menu:", "sound:", "catcher:", "book:", "close"));
         } else if (args.length == 6 && args[0].equalsIgnoreCase("menu") && args[1].equalsIgnoreCase("action")
             && (args[3].equalsIgnoreCase("set") || args[3].equalsIgnoreCase("add"))) {
             completions.addAll(List.of("command:", "console:", "tell:", "menu:", "sound:", "catcher:", "book:", "close"));
