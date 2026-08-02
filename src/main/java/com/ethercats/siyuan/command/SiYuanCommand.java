@@ -171,7 +171,7 @@ public class SiYuanCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("§6/gc menu open <菜单名> §7打开菜单");
             sender.sendMessage("§6/gc menu edit <菜单名> [行数] [标题] §7游戏内编辑菜单");
             sender.sendMessage("§6/gc menu save|cancel §7保存或放弃编辑");
-            sender.sendMessage("§6/gc menu action <槽位> <left|right|all> <动作|clear> §7设置点击动作");
+            sender.sendMessage("§6/gc menu action <槽位> <left|right|all> <set|add|remove|clear> [动作|序号] §7编辑点击动作");
             sender.sendMessage("§6/gc menu title|permission <值> §7设置标题或打开权限");
             sender.sendMessage("§6/gc menu list §7列出菜单");
             sender.sendMessage("§6/gc menu reload §7重载菜单");
@@ -218,7 +218,7 @@ public class SiYuanCommand implements CommandExecutor, TabCompleter {
                 if (!sender.hasPermission("siyuan.admin")) { plugin.getMessageService().send(sender, "no-permission"); return; }
                 if (!(sender instanceof Player player)) { plugin.getMessageService().send(sender, "player-only"); return; }
                 if (args.length < 4) {
-                    sender.sendMessage("§c用法: /gc menu action <槽位> <left|right|all> <动作|clear>");
+                    sender.sendMessage("§c用法: /gc menu action <槽位> <left|right|all> <set|add|remove|clear> [动作|序号]");
                     return;
                 }
                 try {
@@ -228,8 +228,15 @@ public class SiYuanCommand implements CommandExecutor, TabCompleter {
                         sender.sendMessage("§c点击类型只能是 left、right 或 all");
                         return;
                     }
-                    String action = String.join(" ", Arrays.copyOfRange(args, 3, args.length));
-                    plugin.getMenuEditorManager().setItemAction(player, slot, clickType, action);
+                    String operation = args[3].toLowerCase(Locale.ROOT);
+                    int valueStart = 4;
+                    if (!List.of("set", "add", "remove", "clear").contains(operation)) {
+                        // Keep the former /gc menu action <slot> <type> <action> form as set.
+                        operation = "set";
+                        valueStart = 3;
+                    }
+                    String value = valueStart >= args.length ? "" : String.join(" ", Arrays.copyOfRange(args, valueStart, args.length));
+                    plugin.getMenuEditorManager().setItemAction(player, slot, clickType, operation, value);
                 } catch (NumberFormatException ex) {
                     sender.sendMessage("§c槽位必须是整数");
                 }
@@ -368,7 +375,10 @@ public class SiYuanCommand implements CommandExecutor, TabCompleter {
         } else if (args.length == 4 && args[0].equalsIgnoreCase("menu") && args[1].equalsIgnoreCase("action")) {
             completions.addAll(List.of("left", "right", "all"));
         } else if (args.length == 5 && args[0].equalsIgnoreCase("menu") && args[1].equalsIgnoreCase("action")) {
-            completions.addAll(List.of("command:", "console:", "tell:", "menu:", "sound:", "catcher:", "book:", "close", "clear"));
+            completions.addAll(List.of("set", "add", "remove", "clear", "command:", "console:", "tell:", "menu:", "sound:", "catcher:", "book:", "close"));
+        } else if (args.length == 6 && args[0].equalsIgnoreCase("menu") && args[1].equalsIgnoreCase("action")
+            && (args[3].equalsIgnoreCase("set") || args[3].equalsIgnoreCase("add"))) {
+            completions.addAll(List.of("command:", "console:", "tell:", "menu:", "sound:", "catcher:", "book:", "close"));
         } else if (args.length == 4 && args[0].equalsIgnoreCase("wp") && args[1].equalsIgnoreCase("add")) {
             completions.addAll(List.of("RECOVERY_COMPASS", "RED_BED", "EMERALD", "LODESTONE", "NETHER_STAR"));
         }

@@ -28,7 +28,7 @@ siyuan 以 [RenwQuestPlugin](https://github.com/Ether-Cats/RenwQuestPlugin)、[C
 /gc wp [add 名称 图标]      传送点
 /gc menu open <名称>        打开菜单
 /gc menu edit <名称> [行数] [标题]
-/gc menu action <槽位> <left|right|all> <动作|clear>
+/gc menu action <槽位> <left|right|all> <set|add|remove|clear> [动作|序号]
 /gc menu title <标题>
 /gc menu permission <权限|none>
 /gc menu save|cancel|reload|sync

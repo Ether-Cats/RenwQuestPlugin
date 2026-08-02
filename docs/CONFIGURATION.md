@@ -175,13 +175,15 @@ items:
 ```text
 /gc menu open <名称>
 /gc menu edit <名称> [行数] [标题]
-/gc menu action <槽位> <left|right|all> <动作|clear>
+/gc menu action <槽位> <left|right|all> <set|add|remove|clear> [动作|序号]
 /gc menu title <标题>
 /gc menu permission <权限节点|none>
 /gc menu save
 /gc menu cancel
 /gc menu sync
 ```
+
+`set` 覆盖该点击类型的动作列表，`add` 追加一个动作，`remove` 按从 `0` 开始的序号删除一个动作，`clear` 清空列表。为兼容旧用法，省略操作词时仍等同于 `set`。
 
 编辑器内现有菜单物品是临时虚拟副本，结束编辑后会清理；从背包放入的真实物品会作为菜单模板保存，并归还给编辑者。不要让非管理员获得 `siyuan.admin`。
 

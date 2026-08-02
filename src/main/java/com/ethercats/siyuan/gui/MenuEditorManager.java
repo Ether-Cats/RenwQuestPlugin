@@ -164,6 +164,13 @@ public final class MenuEditorManager implements Listener {
     }
 
     public void setItemAction(Player player, int slot, String requestedType, String requestedAction) {
+        String normalized = MenuActionCodec.normalize(requestedAction == null ? "" : requestedAction.trim());
+        setItemAction(player, slot, requestedType,
+            normalized.equalsIgnoreCase("clear") || normalized.equalsIgnoreCase("none") ? "clear" : "set",
+            normalized);
+    }
+
+    public void setItemAction(Player player, int slot, String requestedType, String requestedOperation, String requestedValue) {
         EditorSession session = sessions.get(player.getUniqueId());
         if (session == null) {
             player.sendMessage("§c请先使用 /gc menu edit 打开一个菜单");
@@ -183,29 +190,77 @@ public final class MenuEditorManager implements Listener {
             player.sendMessage("§c点击类型只能是 left、right 或 all");
             return;
         }
-        String action = MenuActionCodec.normalize(requestedAction == null ? "" : requestedAction.trim());
-        boolean clear = action.equalsIgnoreCase("clear") || action.equalsIgnoreCase("none");
-        if (!clear && !isSupportedAction(action)) {
-            player.sendMessage("§c动作格式无效，可用 command:/console:/tell:/chat:/menu:/sound:/catcher:/book: 或 close");
-            return;
-        }
 
         String token = getEditorToken(current);
+        ActionBinding existing = token == null
+            ? new ActionBinding(List.of(), List.of(), List.of())
+            : session.actions.getOrDefault(token, new ActionBinding(List.of(), List.of(), List.of()));
+        List<String> currentActions = switch (type) {
+            case "right" -> existing.rightActions;
+            case "all" -> existing.allActions;
+            default -> existing.leftActions;
+        };
+        List<String> actions;
+        try {
+            actions = updateActions(currentActions, requestedOperation, requestedValue);
+        } catch (IllegalArgumentException ex) {
+            player.sendMessage("§c" + ex.getMessage());
+            return;
+        }
         if (token == null) {
             token = session.id + ":" + UUID.randomUUID();
             session.templateTokens.add(token);
             session.inventory.setItem(slot, tagVirtualItem(current, token));
         }
-        ActionBinding existing = session.actions.getOrDefault(token, new ActionBinding(List.of(), List.of(), List.of()));
-        List<String> actions = clear ? List.of() : List.of(action);
         session.actions.put(token, switch (type) {
             case "right" -> new ActionBinding(existing.leftActions, actions, existing.allActions);
             case "all" -> new ActionBinding(existing.leftActions, existing.rightActions, actions);
             default -> new ActionBinding(actions, existing.rightActions, existing.allActions);
         });
-        player.sendMessage(clear
-            ? "§a已清除槽位 " + slot + " 的 " + type + " 动作"
-            : "§a已设置槽位 " + slot + " 的 " + type + " 动作");
+        String operation = requestedOperation == null ? "" : requestedOperation.trim().toLowerCase(Locale.ROOT);
+        String verb = switch (operation) {
+            case "add" -> "已追加";
+            case "remove" -> "已删除";
+            case "clear" -> "已清除";
+            default -> "已设置";
+        };
+        player.sendMessage("§a" + verb + "槽位 " + slot + " 的 " + type + " 动作");
+    }
+
+    static List<String> updateActions(List<String> existing, String requestedOperation, String requestedValue) {
+        List<String> actions = new ArrayList<>(existing == null ? List.of() : existing);
+        String operation = requestedOperation == null ? "" : requestedOperation.trim().toLowerCase(Locale.ROOT);
+        switch (operation) {
+            case "set" -> {
+                String action = validAction(requestedValue);
+                actions.clear();
+                actions.add(action);
+            }
+            case "add" -> actions.add(validAction(requestedValue));
+            case "remove" -> {
+                int index;
+                try {
+                    index = Integer.parseInt(requestedValue == null ? "" : requestedValue.trim());
+                } catch (NumberFormatException ex) {
+                    throw new IllegalArgumentException("remove 需要 0 开始的动作序号");
+                }
+                if (index < 0 || index >= actions.size()) {
+                    throw new IllegalArgumentException("动作序号必须在 0 到 " + Math.max(0, actions.size() - 1) + " 之间");
+                }
+                actions.remove(index);
+            }
+            case "clear" -> actions.clear();
+            default -> throw new IllegalArgumentException("动作操作只能是 set、add、remove 或 clear");
+        }
+        return List.copyOf(actions);
+    }
+
+    private static String validAction(String requestedValue) {
+        String action = MenuActionCodec.normalize(requestedValue == null ? "" : requestedValue.trim());
+        if (!MenuActionCodec.isSupported(action)) {
+            throw new IllegalArgumentException("动作格式无效，可用 command:/console:/tell:/chat:/menu:/sound:/catcher:/book: 或 close");
+        }
+        return action;
     }
 
     public void setTitle(Player player, String title) {
@@ -428,10 +483,6 @@ public final class MenuEditorManager implements Listener {
                 player.getInventory().setItemInOffHand(new ItemStack(Material.AIR));
             }
         }
-    }
-
-    private boolean isSupportedAction(String action) {
-        return MenuActionCodec.isSupported(action);
     }
 
     private ItemStack tagVirtualItem(ItemStack original, String token) {
