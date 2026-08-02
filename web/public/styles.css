@@ -24,6 +24,8 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .primary { background: var(--accent); border-color: var(--accent); color: white; }
 .primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
 .publish { background: #fff7ed; border-color: #fdba74; color: #9a3412; }
+.ai-button { background: #e6f4f7; border-color: #8ec4cf; color: #0d5664; }
+.ai-button:hover { background: #d4edf2; border-color: #5ba7b5; }
 .hidden { display: none !important; }
 
 .topbar { height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 0 20px; background: #172026; color: white; border-bottom: 1px solid #0f1519; }
@@ -89,6 +91,10 @@ dialog::backdrop { background: #10191fcc; }
 .dialog-form h2, .dialog-form p { margin: 0; }
 .dialog-form p { color: var(--muted); font-size: 13px; }
 .wide-dialog { width: min(760px, calc(100vw - 32px)); }
+.ai-dialog-form { gap: 14px; }
+.ai-result { display: grid; gap: 10px; padding: 12px; border: 1px solid #b6d5da; border-radius: 5px; background: #f3fbfc; }
+.ai-result textarea { min-height: 220px; font-family: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace; font-size: 12px; line-height: 1.45; }
+.result-note { min-height: 18px; margin: 0; color: #0d5664; font-size: 12px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .form-error { min-height: 18px; color: var(--danger); font-size: 12px; }
 .toast { position: fixed; right: 20px; bottom: 20px; max-width: 380px; padding: 10px 14px; border-radius: 5px; background: #172026; color: white; opacity: 0; pointer-events: none; transform: translateY(8px); transition: .18s ease; }

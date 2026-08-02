@@ -46,7 +46,9 @@ test("normalizes newer GFMenu and DeluxeMenus action aliases", () => {
         "[player] msg: &aHello",
         "[console] give %player% diamond 1",
         "[sound] ENTITY_PLAYER_LEVELUP-1-1",
-        "打开菜单: rewards"
+        "打开菜单: rewards",
+        "聊天输入: feedback|end=tell:&aSaved",
+        "书本: feedback|end=tell:&aSaved"
       ]
     }]
   });
@@ -54,7 +56,9 @@ test("normalizes newer GFMenu and DeluxeMenus action aliases", () => {
     "tell:&aHello",
     "console:give %player% diamond 1",
     "sound:ENTITY_PLAYER_LEVELUP-1-1",
-    "menu:rewards"
+    "menu:rewards",
+    "catcher:feedback|end=tell:&aSaved",
+    "book:feedback|end=tell:&aSaved"
   ]);
 });
 

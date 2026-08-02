@@ -1,182 +1,201 @@
-# siyuan 思渊菜单管理
+# siyuan 思渊 Web 菜单管理
 
-独立部署的 siyuan 菜单控制面。它不运行在 Paper 进程内，也不要求 Minecraft 服务器开放入站端口：管理员通过浏览器编辑并发布菜单，游戏服使用各自的服务器级令牌定时拉取已发布版本，也可把游戏内编辑写回同一版本链。
+独立部署的 siyuan 菜单控制面。管理员在浏览器编辑、保存和发布菜单；每台 Paper 游戏服凭自己的同步令牌通过出站 HTTPS 拉取已发布版本，也可以把游戏内编辑写回同一版本链。Minecraft 主机不需要开放 Web 入站端口，也不需要直连 Web 数据库。
 
-## 为什么使用 PostgreSQL
+## 数据边界
 
-Web 控制面使用 PostgreSQL，游戏玩法数据仍可继续使用现有 MySQL。菜单文档适合 PostgreSQL `JSONB`，不可变版本、唯一约束、事务发布和审计日志也比把 YAML 文件放到共享目录更可靠。这里没有要求 Minecraft 插件直连 PostgreSQL；两个系统通过版本化 HTTPS API 解耦，后续可以分别扩容和迁移。
+- Paper 插件的玩家、通行证、任务进度、商店、传送点和经济审计继续使用 **MySQL 8**，不能改用 PostgreSQL。
+- Web 菜单控制面可选 **PostgreSQL** 或 **MySQL 8**。它只创建并使用自己的 `web_*` 表，用于服务器、菜单版本、审计、Web 用户和会话。
+- Web 与游戏服通过版本化 HTTPS API 解耦，因此 Web、数据库和任意数量的游戏服可以部署在不同机器。
 
-数据层级为：
+菜单数据关系：
 
 ```text
-服务器 web_servers
-  -> 菜单 web_menus
-     -> 不可变版本 web_menu_versions
-     -> published_version 指向游戏服可见版本
-  -> 审计 web_audit_log
+web_servers
+  -> web_menus
+     -> web_menu_versions
+     -> published_version
+  -> web_audit_log
 ```
 
-每台服务器有独立同步令牌。数据库只保存令牌的 SHA-256，创建或轮换时明文只返回一次。令牌只能读写该 `server-id` 的菜单，不能访问管理 API；管理员 API Key 与游戏服同步令牌不通用。
+每台服务器都有独立同步令牌。数据库只保存令牌哈希；明文只会在创建或轮换时返回一次。同步令牌、Web 管理 API Key、浏览器账号密码三者互不通用。
 
-## 功能
-
-- 1 至 6 行、每行 9 格的可视化编辑器，格子点击编辑和拖动换位。
-- 材质、数量、名称、Lore、左/右/任意点击动作、发光、头颅所有者与打开权限编辑。
-- DeluxeMenus 标准 `items:` YAML、siyuan JSON 导入导出；兼容旧版顶层 slot 配置。
-- 保存生成不可变版本，发布与保存分离，可选择历史版本重新发布。
-- 多服务器隔离，每台服务器只读写自己名下的菜单版本。
-- 乐观锁防止并发覆盖，所有创建、保存、发布和令牌轮换写审计日志。
-- 健康检查、严格输入大小、CORS 白名单、安全响应头和 PostgreSQL 参数化查询。
-
-## 本地或单机部署
-
-要求 Docker Compose。此 Compose 是独立项目，只创建自己的 PostgreSQL、网络、卷和 Web 容器；PostgreSQL 不映射到宿主机。复制环境变量示例并生成随机凭据：
+## 获取部署包
 
 ```bash
-cd web
-cp .env.example .env
-openssl rand -hex 32
-openssl rand -hex 32
-docker compose up -d --build
+# 源码部署
+git clone --branch siyuan https://github.com/siyuanmc/RenwQuestPlugin.git
+cd RenwQuestPlugin/web
+
+# 或下载 Release 中的 Web 部署包
+tar -xzf siyuan-web-v1.1.0.tar.gz
+cd siyuan-web-v1.1.0
 ```
 
-将第一个随机值设为 `POSTGRES_PASSWORD`，第二个设为 `SIYUAN_WEB_API_KEY`。随机十六进制密码可以直接安全放入 Compose 生成的 PostgreSQL URL。默认仅监听 `127.0.0.1:8080`，适合由同机 Nginx、Caddy 或 Traefik 提供 HTTPS 反向代理；需要直接绑定内网地址时设置：
+Release 同时包含 Paper 用的 `siyuan-1.1.0.jar` 和 Web 部署包。Web 不在插件 JAR 内，也不需要从 JAR 提取文件。
 
-```text
-WEB_BIND_ADDRESS=10.0.0.20
+## 默认部署
+
+默认 `docker-compose.yml` **仅启动一个 Web 容器**。它不会创建数据库容器或数据库卷，也不会修改其他 Docker 项目；Compose 只会建立该 Web 服务自己的标准网络。数据库由服主自行提供；首次运行会在指定数据库中幂等创建 `web_*` 表和索引。
+
+```bash
+cp .env.example .env
+# 编辑 .env，按下面的 PostgreSQL 或 MySQL 示例填写
+docker compose up -d --build
+docker compose logs --tail=100 web
+```
+
+升级 Web 也使用同一条命令：`docker compose up -d --build`。停止此 Compose 项目使用 `docker compose down`，它只停止 Web 容器，不会删除服主提供的数据库内容。
+
+### PostgreSQL 示例
+
+```dotenv
+DATABASE_TYPE=postgres
+DATABASE_URL=postgresql://siyuan_web:replace-me@postgres.example.com:5432/siyuan_web
+DB_SSL=true
+DB_SSL_VERIFY=true
+
+SIYUAN_WEB_API_KEY=replace-with-at-least-32-random-characters
+SIYUAN_WEB_ADMIN_USER=admin
+SIYUAN_WEB_ADMIN_PASSWORD=replace-with-a-password-of-at-least-12-characters
+SIYUAN_WEB_SESSION_SECURE=true
+SIYUAN_WEB_SESSION_TTL_HOURS=12
+
+WEB_BIND_ADDRESS=127.0.0.1
 WEB_PORT=8080
 CORS_ORIGINS=https://menu.example.com
+TRUST_PROXY=1
 ```
 
-打开 Web 页面后输入 `SIYUAN_WEB_API_KEY`。密钥只保存在浏览器 `sessionStorage`，关闭会话即清除。创建服务器时页面会显示一次该服务器的同步令牌，随后将它配置到对应游戏服。
+### MySQL 示例
 
-这个默认 Compose 会创建一个独立 PostgreSQL 容器、专用 Docker 网络和命名卷；它不会把 PostgreSQL 映射到宿主机，也不会复用或修改其他 Compose 项目。
+```dotenv
+DATABASE_TYPE=mysql
+DATABASE_URL=mysql://siyuan_web:replace-me@mysql.example.com:3306/siyuan_web
+DB_SSL=true
+DB_SSL_VERIFY=true
 
-## 使用已有 PostgreSQL
+SIYUAN_WEB_API_KEY=replace-with-at-least-32-random-characters
+SIYUAN_WEB_ADMIN_USER=admin
+SIYUAN_WEB_ADMIN_PASSWORD=replace-with-a-password-of-at-least-12-characters
+SIYUAN_WEB_SESSION_SECURE=true
+SIYUAN_WEB_SESSION_TTL_HOURS=12
 
-已有托管 PostgreSQL、跨机器 PostgreSQL 或统一数据库集群时，不应再启动内置数据库容器。使用独立 Compose 文件即可只部署 Web：
-
-```bash
-cd web
-cp .env.external-db.example .env
-# 填写 DATABASE_URL 与 SIYUAN_WEB_API_KEY
-docker compose -f docker-compose.external-db.yml up -d --build
+WEB_BIND_ADDRESS=127.0.0.1
+WEB_PORT=8080
+CORS_ORIGINS=https://menu.example.com
+TRUST_PROXY=1
 ```
 
-生产数据库应使用 TLS，并保持 `DB_SSL=true`、`DB_SSL_VERIFY=true`。`DATABASE_URL` 中用户名或密码含有 `@`、`:`、`/` 等保留字符时必须做 URL 编码。此模式只创建 Web 容器，不会创建、删除或迁移以外的 Docker 数据库容器；服务启动时只会在目标 PostgreSQL 中幂等创建 `web_*` 表和索引。
+PostgreSQL 建议使用专用数据库和专用角色。MySQL 需为 8.0+、InnoDB、`utf8mb4`，同样使用专用数据库和账号。账号需要在自己的数据库内建表、建索引和读写 `web_*` 表的权限。连接串中的 `@`、`:`、`/`、`#` 等保留字符必须进行 URL 编码。
+
+生产环境应由 Nginx、Caddy 或 Traefik 提供 HTTPS，并保持 `WEB_BIND_ADDRESS=127.0.0.1`、`SIYUAN_WEB_SESSION_SECURE=true` 与正确的 `CORS_ORIGINS`。无反向代理的本地 HTTP 调试可暂时设 `SIYUAN_WEB_SESSION_SECURE=false` 和 `TRUST_PROXY=0`，不要把该设置直接用于公网。
+
+## 账号密码登录
+
+首次启动会用 `SIYUAN_WEB_ADMIN_USER` 和 `SIYUAN_WEB_ADMIN_PASSWORD` 创建管理员账号。浏览器只提交账号密码；成功后服务端签发 `HttpOnly`、`SameSite=Lax` 会话 Cookie，写操作额外要求 CSRF 令牌。浏览器不会保存管理 API Key 或会话明文。
+
+`SIYUAN_WEB_ADMIN_PASSWORD` 是该管理员账号的期望密码。之后修改 `.env` 中的密码并重新执行 `docker compose up -d --build` 会更新密码并撤销该账号已有的浏览器会话。密码长度必须为 12 到 256 字符，数据库只保存 scrypt 哈希。
+
+打开 `https://menu.example.com` 后直接用该账号密码登录。创建游戏服务器时，页面会显示一次同步令牌；立即将它填入该游戏服的 `menu-sync.sync-token` 或启动环境变量 `SIYUAN_WEB_SYNC_TOKEN`。
 
 ## 环境变量
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `WEB_BIND_ADDRESS` | `127.0.0.1` | 宿主机绑定地址；公网直连才设为 `0.0.0.0`，通常应保持回环地址并由 HTTPS 反代。 |
-| `WEB_PORT` | `8080` | 宿主机 Web 端口；容器内部始终为 `8080`。 |
-| `SIYUAN_WEB_API_KEY` | 无 | 管理 API Key，至少 32 字符，浏览器登录与管理接口使用。 |
-| `CORS_ORIGINS` | `http://localhost:8080` | 允许访问 API 的浏览器来源，多个来源以英文逗号分隔。 |
-| `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | `siyuan_web` / `siyuan_web` / 无 | 仅默认内置 PostgreSQL Compose 使用。 |
-| `DATABASE_URL` | 无 | 仅外置 PostgreSQL Compose 或直接 Node 启动使用。 |
-| `DB_SSL` / `DB_SSL_VERIFY` | `false` / `true` | PostgreSQL TLS 开关与证书校验；外置 Compose 默认启用。 |
-| `TRUST_PROXY` | `1` | 前面有一个 Nginx、Caddy 或 Traefik 时保持 `1`；没有反代时设为 `0`。 |
+| `DATABASE_TYPE` | `postgres` | `postgres`（也接受 `postgresql`）或 `mysql`。 |
+| `DATABASE_URL` | 无 | 服主提供的数据库连接串。 |
+| `DB_SSL` / `DB_SSL_VERIFY` | `true` / `true` | 两种数据库的 TLS 开关与证书校验。 |
+| `SIYUAN_WEB_ADMIN_USER` | 无 | 初始/受管管理员账号，3 到 64 位字母、数字或 `._-@`。 |
+| `SIYUAN_WEB_ADMIN_PASSWORD` | 无 | 管理员密码，12 到 256 字符；修改后会在启动时轮换。 |
+| `SIYUAN_WEB_SESSION_SECURE` | `true` | HTTPS 环境必须为 `true`；本地 HTTP 调试才设为 `false`。 |
+| `SIYUAN_WEB_SESSION_TTL_HOURS` | `12` | Web 会话时长，范围 1 到 720 小时。 |
+| `SIYUAN_WEB_API_KEY` | 无 | 至少 32 字符；保留给自动化管理 API，不用于浏览器登录。 |
+| `WEB_BIND_ADDRESS` | `127.0.0.1` | 宿主机绑定地址。通常保持回环地址，由反向代理提供 HTTPS。 |
+| `WEB_PORT` | `8080` | 宿主机 Web 端口；容器内恒为 `8080`。 |
+| `CORS_ORIGINS` | `http://localhost:8080` | 允许浏览器访问的精确来源，多个来源用英文逗号分隔。 |
+| `TRUST_PROXY` | `1` | 前方有一层反向代理时保持 `1`；没有反代时设 `0`。 |
+| `SIYUAN_AI_ENABLED` | `false` | 是否启用 Web 端 AI 草稿。 |
+| `SIYUAN_AI_BASE_URL` | `https://api.openai.com/v1` | OpenAI 兼容 Chat Completions API 根地址。 |
+| `SIYUAN_AI_API_KEY` / `SIYUAN_AI_MODEL` | 无 | 仅保存在 Web 容器内的 AI 提供商凭据与模型名。 |
+| `SIYUAN_AI_TIMEOUT_MS` | `20000` | 单次 AI 请求超时，范围 1000 到 120000 毫秒。 |
+| `SIYUAN_AI_MAX_PROMPT_CHARS` / `SIYUAN_AI_MAX_TOKENS` | `2000` / `1200` | 每次需求长度与模型输出上限。 |
+| `SIYUAN_AI_RATE_LIMIT_PER_MINUTE` | `6` | 每个操作人和来源的每分钟 AI 请求上限。 |
 
 ## 异地部署
 
-推荐把 `web + PostgreSQL` 部署在管理机，将 `https://menu.example.com` 反代到 Web 容器。Minecraft 服务器只需允许出站 HTTPS，并轮询同步 API：
+Web、数据库与游戏服可以分别放在不同服务器：
 
 ```text
-Minecraft server A --HTTPS--> menu.example.com --internal--> PostgreSQL
-Minecraft server B --HTTPS--> menu.example.com --internal--> PostgreSQL
+Minecraft server A -- outbound HTTPS --> menu.example.com --> PostgreSQL or MySQL
+Minecraft server B -- outbound HTTPS --> menu.example.com --> PostgreSQL or MySQL
 ```
 
-不要把 PostgreSQL 暴露给游戏服或公网。生产环境必须使用 HTTPS；API Key 或同步令牌通过明文 HTTP 传输会被中间节点获取。反向代理还应设置请求速率限制、访问日志和管理端 IP/VPN 限制。
+不要向游戏服或公网开放 Web 数据库。游戏服只需要能通过 HTTPS 访问 `menu-sync.base-url`。生产环境必须使用 HTTPS；管理 API Key 或同步令牌经明文 HTTP 传输会被中间节点获取。反向代理还应限制管理端来源 IP 或 VPN、设置访问日志与请求速率限制。
 
-Web 服务是无状态的，可以在负载均衡器后运行多个实例，只要它们使用同一个 PostgreSQL 和相同的管理 API Key。菜单并发安全由数据库事务和 `baseVersion` 乐观锁保证。
+Web 可以横向运行多个实例，只要它们使用同一个 Web 数据库、相同的 `SIYUAN_WEB_API_KEY` 和管理员环境变量。保存与发布使用事务、菜单行锁和 `baseVersion` 乐观锁，避免静默覆盖。
 
-## 同步 API 合约
+游戏服配置示例：
 
-请求：
+```yaml
+menu-sync:
+  enabled: true
+  base-url: "https://menu.example.com"
+  server-id: "lobby-1"
+  sync-token: ""
+  poll-seconds: 30
+  timeout-seconds: 8
+  push-game-edits: true
+  allow-remote-console-actions: false
+  allow-insecure-http: false
+```
+
+生产环境推荐通过服务管理器设置 `SIYUAN_WEB_SYNC_TOKEN`，它优先于 YAML 中的 `sync-token`。每台游戏服必须有独立令牌；它只能读写所属 `server-id` 的菜单。
+
+## 同步与管理 API
+
+同步接口不使用浏览器账号或管理 API Key：
 
 ```http
 GET /api/sync/lobby-1 HTTP/1.1
-Host: menu.example.com
-X-siyuan-Sync-Token: <该服务器创建时返回的令牌>
-If-None-Match: "<上次响应的 checksum>"
+X-siyuan-Sync-Token: <该服务器令牌>
+If-None-Match: "<上次 checksum>"
 ```
 
-成功返回 `200 application/json`：
+响应只包含已发布菜单，并提供 `ETag`。内容未变时返回 `304`。游戏内编辑使用 `PUT /api/sync/:serverSlug/menus/:menuKey`，携带 `baseVersion`；版本已变化时服务返回 `409`，插件会先保留本地最后可用版本并提示重新同步。同步接口默认拒绝远程 `console:` 和 `op:` 菜单动作。
 
-```json
-{
-  "server": { "id": "uuid", "slug": "lobby-1", "display_name": "大厅一服" },
-  "checksum": "sha256",
-  "generatedAt": "2026-08-01T12:00:00.000Z",
-  "menus": [
-    {
-      "id": "uuid",
-      "key": "main",
-      "displayName": "主菜单",
-      "version": 7,
-      "document": { "title": "&6主菜单", "size": 54, "items": [] },
-      "yaml": "menu_title: '&6主菜单'\n...",
-      "checksum": "sha256"
-    }
-  ]
-}
-```
-
-服务同时返回 `ETag: "<checksum>"`。内容未变时，携带 `If-None-Match` 的请求返回 `304` 且无响应体。只有 `published_version` 非空的菜单会出现；草稿永远不会下发。插件应先完整校验响应，再以临时文件加原子重命名替换本地菜单；网络错误、`401`、`5xx` 或无效文档时保留最后一个可用版本。
-
-游戏内编辑写回使用同一个服务器令牌：
-
-```http
-PUT /api/sync/lobby-1/menus/main HTTP/1.1
-X-siyuan-Sync-Token: <服务器令牌>
-Content-Type: application/json
-
-{"baseVersion":7,"yaml":"menu_title: Main\nsize: 9\nitems: {}\n","publish":true}
-```
-
-服务会在 PostgreSQL 事务和菜单级 advisory lock 中创建不可变版本；`publish:true` 同时推进发布指针，其他同 `server-id` 实例随后即可拉取。已有菜单必须携带最近一次同步得到的 `baseVersion`；Web 已有新版本时返回 `409`，游戏服应先拉取再重新编辑，避免静默覆盖。状态码：`401` 表示同步令牌无效，`404` 表示服务器标识不存在，`409` 表示版本冲突，`200/304` 表示正常。同步接口不接受管理 API Key。
-
-## 管理 API
-
-除 `/health` 和服务器同步接口外，所有管理 `/api` 请求都必须携带：
+浏览器使用 `/api/auth/login`、Cookie 和 CSRF 令牌。自动化管理程序可使用：
 
 ```http
 X-API-Key: <SIYUAN_WEB_API_KEY>
-X-siyuan-Actor: admin-name
+X-siyuan-Actor: automation-name
 ```
 
-主要接口：
+主要管理接口为 `GET|POST /api/servers`、`POST /api/servers/:id/rotate-sync-token`、`GET|POST /api/servers/:id/menus`、`GET|PUT|DELETE /api/menus/:id`、`POST /api/menus/:id/publish`、`POST /api/import`、`GET /api/menus/:id/export` 和 `GET /api/audit`。创建和轮换同步令牌的响应只显示一次明文令牌，不能记录到日志、工单或仓库。
 
-- `GET /health`：服务和 PostgreSQL 健康检查。
-- `GET|POST /api/servers`：列出或创建服务器；创建响应额外包含一次性 `syncToken`。
-- `POST /api/servers/:id/rotate-sync-token`：立即废止旧令牌并返回一次新令牌。
-- `DELETE /api/servers/:id`：删除服务器及其菜单版本。
-- `GET|POST /api/servers/:id/menus`：列出或创建菜单。
-- `GET /api/menus/:id?version=N`：读取当前或指定版本及版本历史。
-- `PUT /api/menus/:id`：以 `{baseVersion, document, changeNote}` 保存新版本。
-- `POST /api/menus/:id/publish`：以 `{version}` 发布当前或历史版本。
-- `DELETE /api/menus/:id`：删除菜单及版本。
-- `POST /api/import`：以 `{format: "yaml|json", source}` 解析并规范化导入内容。
-- `GET /api/menus/:id/export?format=yaml|json&version=N`：导出版本。
-- `GET /api/audit?limit=50`：读取最近审计记录。
+## AI 草稿
 
-插件配置中的 `menu-sync.push-game-edits` 控制游戏内保存是否写回 Web；启用时 `/gc menu edit` 保存会自动提交并发布，禁用时仅保留本地菜单。`/gc menu sync` 可立即拉取一次。
+AI 默认关闭。启用后，Web 顶栏提供“AI 草稿”：可生成任务 YAML，或生成并载入当前菜单的**未保存草稿**。任务 YAML 只显示建议文件路径，仍需管理员审阅并放入游戏服；菜单草稿仍需手动保存版本和发布。
 
-管理 API Key 轮换方式是更新所有 Web 实例的 `SIYUAN_WEB_API_KEY` 并滚动重启。服务器同步令牌通过轮换接口逐服更换，旧令牌会立即失效。不要在日志、工单或代码库中记录任何明文密钥。
+```dotenv
+SIYUAN_AI_ENABLED=true
+SIYUAN_AI_BASE_URL=https://your-ai-gateway.example/v1
+SIYUAN_AI_API_KEY=replace-with-provider-key
+SIYUAN_AI_MODEL=replace-with-provider-model
+```
 
-## 开发与验证
+AI Key 不发送到浏览器或 Minecraft 插件。服务按账号和来源限速，审计日志只保存草稿种类与数量，不保存提示词或模型回复。任务草稿只接受 `money`、`exp`、`item` 奖励；菜单草稿拒绝 `console:` 和 `op:` 动作。AI 没有数据库写入、菜单发布、Vault 经济或游戏服控制台权限。
 
-Node.js 18 或更高版本：
+## 验证与排障
 
 ```bash
 npm ci
 npm test
 node --check src/app.js
+node --check src/database.js
 node --check public/app.js
-POSTGRES_PASSWORD=test SIYUAN_WEB_API_KEY=0123456789abcdef0123456789abcdef docker compose config --quiet
+docker compose config --quiet
+curl -fsS http://127.0.0.1:8080/health
 ```
 
-服务启动时自动执行幂等建表。生产升级前仍应备份 PostgreSQL 卷，并定期保留 `web_menu_versions` 与 `web_audit_log`。
-
-部署完成后的最小验收为：访问 `GET /health` 应返回 `{"status":"ok","database":"ok"}`，未携带 `X-API-Key` 的 `GET /api/session` 必须返回 `401`。这两个检查分别确认 Web 与 PostgreSQL 连通，以及管理接口没有被意外公开。
+健康检查应返回 `{"status":"ok","database":"ok"}`。未登录访问 `GET /api/session` 必须返回 `401`；登录后会返回当前账号和 `authMethod: "session"`。如果容器无法启动，先检查 `docker compose logs web`、数据库防火墙/白名单、连接串 URL 编码、数据库用户建表权限，以及 `DATABASE_TYPE` 是否与连接串一致。

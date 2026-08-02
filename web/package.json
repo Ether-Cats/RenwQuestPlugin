@@ -1,6 +1,6 @@
 {
   "name": "siyuan-menu-web",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Remote menu editor and versioned configuration API for siyuan",
   "type": "module",
@@ -16,6 +16,7 @@
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
+    "mysql2": "^3.23.2",
     "pg": "^8.13.1",
     "yaml": "^2.7.0"
   }

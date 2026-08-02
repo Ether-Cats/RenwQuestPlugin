@@ -11,7 +11,7 @@ function fakeDatabase() {
   const client = {
     async query(sql, values = []) {
       if (sql === "BEGIN" || sql === "COMMIT" || sql === "ROLLBACK") return { rows: [], rowCount: 0 };
-      if (sql.includes("pg_advisory_xact_lock")) return { rows: [{}], rowCount: 1 };
+      if (sql.includes("pg_advisory_xact_lock")) throw new Error("MySQL path must not use a PostgreSQL advisory lock");
       if (sql.includes("SELECT * FROM web_menus")) return menu ? { rows: [menu], rowCount: 1 } : { rows: [], rowCount: 0 };
       if (sql.includes("INSERT INTO web_menus")) {
         menu = { id: values[0], current_version: 1, published_version: values[4] ? 1 : null };
@@ -26,6 +26,7 @@ function fakeDatabase() {
     release() {}
   };
   return {
+    dialect: "mysql",
     health: async () => new Date(),
     pool: {
       async query(sql) {

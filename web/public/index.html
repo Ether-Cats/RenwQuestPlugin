@@ -11,6 +11,8 @@
     <div class="brand"><span class="brand-mark">SY</span><span>siyuan 思渊菜单管理</span></div>
     <div class="toolbar">
       <span id="saveState" class="save-state">未载入菜单</span>
+      <button id="aiButton" type="button" class="ai-button hidden">AI 草稿</button>
+      <button id="logoutButton" type="button">退出登录</button>
       <button id="importButton" type="button">导入</button>
       <button id="exportButton" type="button">导出</button>
       <button id="saveButton" type="button" class="primary">保存版本</button>
@@ -77,12 +79,11 @@
 
   <dialog id="credentialDialog">
     <form method="dialog" id="credentialForm" class="dialog-form">
-      <h2>连接管理服务</h2>
-      <p>输入部署时设置的 API Key。密钥仅保存在当前浏览器会话。</p>
-      <label>API Key<input id="apiKeyInput" type="password" minlength="32" autocomplete="current-password" required></label>
-      <label>操作人<input id="actorInput" maxlength="128" value="admin" required></label>
+      <h2>登录管理服务</h2>
+      <label>账号<input id="usernameInput" type="text" minlength="3" maxlength="64" pattern="[A-Za-z0-9_.@-]+" autocomplete="username" required></label>
+      <label>密码<input id="passwordInput" type="password" minlength="12" maxlength="256" autocomplete="current-password" required></label>
       <div id="credentialError" class="form-error"></div>
-      <div class="dialog-actions"><button value="login" class="primary">连接</button></div>
+      <div class="dialog-actions"><button value="login" class="primary">登录</button></div>
     </form>
   </dialog>
 
@@ -101,6 +102,26 @@
       <label>格式<select id="importFormat"><option value="yaml">DeluxeMenus YAML</option><option value="json">siyuan JSON</option></select></label>
       <label>内容<textarea id="importSource" rows="18" required></textarea></label>
       <div class="dialog-actions"><button value="cancel">取消</button><button value="confirm" class="primary">载入编辑器</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="aiDialog">
+    <form method="dialog" id="aiForm" class="dialog-form wide-dialog ai-dialog-form">
+      <h2>AI 草稿</h2>
+      <label>草稿类型<select id="aiKind"><option value="task">任务配置</option><option value="menu">当前菜单</option></select></label>
+      <label id="aiTaskTypeField">任务类型<select id="aiTaskType"><option value="">由 AI 判断</option><option value="DAILY">DAILY 每日</option><option value="WEEKLY">WEEKLY 每周</option><option value="SEASONAL">SEASONAL 赛季</option><option value="STORY">STORY 剧情</option><option value="CHALLENGE">CHALLENGE 挑战</option></select></label>
+      <label>需求<textarea id="aiPrompt" rows="6" maxlength="2000" required placeholder="例如：做一个每天挖 32 个铁矿石的任务，给 60 通行证经验和 30 金币"></textarea></label>
+      <div id="aiResultPanel" class="ai-result hidden">
+        <label>建议位置<input id="aiSuggestedPath" readonly></label>
+        <label>草稿<textarea id="aiResult" rows="14" readonly></textarea></label>
+        <p id="aiResultNote" class="result-note"></p>
+      </div>
+      <div class="dialog-actions">
+        <button value="cancel">关闭</button>
+        <button id="aiCopyButton" type="button" class="hidden">复制 YAML</button>
+        <button id="aiApplyButton" type="button" class="primary hidden">载入未保存草稿</button>
+        <button value="generate" class="primary">生成草稿</button>
+      </div>
     </form>
   </dialog>
 

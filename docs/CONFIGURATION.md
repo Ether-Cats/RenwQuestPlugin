@@ -1,6 +1,6 @@
 # siyuan 配置参考
 
-siyuan 把游戏功能和菜单控制面拆开：游戏服使用 MySQL 和可选 Redis，Web 菜单管理使用 PostgreSQL。两套数据库不需要互相直连。
+siyuan 把游戏功能和菜单控制面拆开：游戏服使用 MySQL 和可选 Redis，Web 菜单管理可使用服主提供的 PostgreSQL 或 MySQL。两套数据不需要互相直连，游戏玩法库仍必须使用 MySQL。
 
 ## 前置条件
 
@@ -9,7 +9,7 @@ siyuan 把游戏功能和菜单控制面拆开：游戏服使用 MySQL 和可选
 - PlaceholderAPI、LuckPerms 是可选项。
 - `siyuan.admin` 是所有管理员命令和游戏内菜单编辑权限。
 
-将 `target/siyuan-1.0.0.jar` 放入服务器 `plugins/` 目录，首次启动会生成 `plugins/siyuan/config.yml`、通行证、任务和菜单示例文件。不要用开发默认密码直接暴露到公网。
+将 `target/siyuan-1.1.0.jar` 放入服务器 `plugins/` 目录，首次启动会生成 `plugins/siyuan/config.yml`、通行证、任务和菜单示例文件。不要用开发默认密码直接暴露到公网。
 
 从旧实验构建升级时，先将 `plugins/SiYuan/` 重命名为 `plugins/siyuan/`，再启动新版本；插件名改为小写后，Paper 会以新目录作为数据目录。
 
@@ -166,7 +166,9 @@ items:
       - "[message] &a欢迎回来"
 ```
 
-动作支持 `command:`、`console:`/`op:`、`tell:`/`message:`、`chat:`、`menu:`、`sound:` 和 `close`。`[player]`、`[console]`、`[message]`、`[sound]`、`[open]`、`[close]` 会被规范化；GFMenu 1.10 的中文别名，例如 `控制台命令:`、`打开菜单:`、`声音:` 也可导入。`%player%`、`{player}`、`%uuid%`、`{uuid}` 会在游戏内动作执行时替换。
+动作支持 `command:`、`console:`/`op:`、`tell:`/`message:`、`chat:`、`menu:`、`sound:`、`catcher:`、`book:` 和 `close`。`[player]`、`[console]`、`[message]`、`[sound]`、`[open]`、`[close]` 会被规范化；GFMenu 1.10 的中文别名，例如 `控制台命令:`、`打开菜单:`、`声音:`、`聊天输入:`、`书本输入:` 也可导入。插件功能命令仍全部从 `/gc` 进入，因此菜单中调用插件功能应写为 `command:gc ...`。`%player%`、`{player}`、`%uuid%`、`{uuid}` 会在游戏内动作执行时替换。
+
+`catcher:<标识>|start=<动作>|end=<动作>|cancel=<动作>` 会在聊天栏接收一次输入；`book:<标识>|prompt=<提示>|start=<动作>|end=<动作>|cancel=<动作>` 会打开可写书本。完成动作可使用 `%book_input%`、`{book_input}`、`%book_input_<标识>%`、`{input}`、`%input%` 或 `%player_input%` 取得输入内容。聊天输入 30 秒、书本输入 120 秒后自动过期；玩家输入 `cancel` 或 `取消` 会执行 `cancel` 动作。
 
 管理员使用以下命令管理菜单：
 
@@ -204,6 +206,6 @@ menu-sync:
 
 `allow-remote-console-actions` 默认关闭。此时带 `console:` 或 `op:` 的菜单动作不会被上传或从 Web 下发；只有在 Web 管理端与每台游戏服都受同一管理员严格控制时才应显式开启。普通 `command:` 动作由点击玩家执行，不受此限制。
 
-Web 可以部署在另一台机器。游戏服只通过出站 HTTPS 拉取已发布菜单并上传游戏内保存，不需要开放任何入站 HTTP 端口，也不需要让 PostgreSQL 暴露给 Minecraft 主机。Web 部署、PostgreSQL 选项和反向代理要求见 [`web/README.md`](../web/README.md)。
+Web 可以部署在另一台机器。游戏服只通过出站 HTTPS 拉取已发布菜单并上传游戏内保存，不需要开放任何入站 HTTP 端口，也不需要让 Web 使用的 PostgreSQL 或 MySQL 暴露给 Minecraft 主机。Web 部署、账号密码登录、MySQL/PostgreSQL 选择和反向代理要求见 [`web/README.md`](../web/README.md)。
 
 远程文件会隔离在 `plugins/siyuan/menus/.remote/<server-id>/`。同名本地菜单不会被远程更新覆盖，插件会拒绝同步并在控制台报告冲突；先改名、迁移或删除本地菜单后再执行 `/gc menu sync`。游戏内保存若发现 Web 版本已改变也会被 Web 拒绝，先同步再重新编辑即可避免覆盖另一位管理员的改动。

@@ -4,6 +4,16 @@ import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import { createAiService } from "./ai.js";
+import {
+  clearSessionCookie,
+  hashToken,
+  randomToken,
+  readCookie,
+  setSessionCookie,
+  validateUsername,
+  verifyPassword
+} from "./auth.js";
 import { exportMenu, normalizeMenu, parseMenu, validateKey } from "./menu-codec.js";
 
 const rootDirectory = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -23,6 +33,7 @@ function sameSecret(actual, expected) {
 }
 
 function actor(request) {
+  if (request.auth?.username) return request.auth.username;
   return String(request.get("x-siyuan-actor") || "web-admin").replace(/[^\p{L}\p{N}_.@-]/gu, "").slice(0, 128) || "web-admin";
 }
 
@@ -75,7 +86,8 @@ function asyncRoute(handler) {
   return (request, response, next) => Promise.resolve(handler(request, response, next)).catch(next);
 }
 
-export function createApp(config, database) {
+export function createApp(config, database, dependencies = {}) {
+  const aiService = dependencies.aiService || createAiService(config.ai);
   const app = express();
   app.set("trust proxy", config.trustProxy);
   app.disable("x-powered-by");
@@ -98,8 +110,9 @@ export function createApp(config, database) {
       if (!origin || config.corsOrigins.includes(origin)) return callback(null, true);
       return callback(new HttpError(403, "该来源不允许访问 API"));
     },
-    allowedHeaders: ["Content-Type", "X-API-Key", "X-siyuan-Actor", "X-siyuan-Sync-Token", "If-None-Match"],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allowedHeaders: ["Content-Type", "X-API-Key", "X-siyuan-Actor", "X-siyuan-CSRF", "X-siyuan-Sync-Token", "If-None-Match"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true
   }));
   app.use(express.json({ limit: "1mb" }));
   app.use((request, _response, next) => {
@@ -170,56 +183,171 @@ export function createApp(config, database) {
     }
     const publish = request.body?.publish !== false;
     const displayName = String(request.body?.displayName || menuKey).trim().slice(0, 128) || menuKey;
-    const result = await transaction(database.pool, async (client) => {
-      await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [`${syncServer.id}:${menuKey}`]);
-      const existing = await client.query(
-        "SELECT * FROM web_menus WHERE server_id = $1 AND menu_key = $2 FOR UPDATE",
-        [syncServer.id, menuKey]
-      );
-      if (existing.rowCount && requestedBaseVersion !== existing.rows[0].current_version) {
-        throw new HttpError(409, "菜单已在 Web 端变化，请先同步后再保存", {
-          currentVersion: existing.rows[0].current_version,
-          publishedVersion: existing.rows[0].published_version
-        });
-      }
-      const menuId = existing.rowCount ? existing.rows[0].id : crypto.randomUUID();
-      const version = existing.rowCount ? existing.rows[0].current_version + 1 : 1;
-      if (existing.rowCount) {
+    let result;
+    try {
+      result = await transaction(database.pool, async (client) => {
+        // PostgreSQL benefits from an advisory lock here. MySQL uses the indexed
+        // row lock below; a concurrent first insert is translated to a conflict.
+        if (database.dialect !== "mysql") {
+          await client.query("SELECT pg_advisory_xact_lock(hashtext($1), 0)", [`${syncServer.id}:${menuKey}`]);
+        }
+        const existing = await client.query(
+          "SELECT * FROM web_menus WHERE server_id = $1 AND menu_key = $2 FOR UPDATE",
+          [syncServer.id, menuKey]
+        );
+        if (existing.rowCount && requestedBaseVersion !== existing.rows[0].current_version) {
+          throw new HttpError(409, "菜单已在 Web 端变化，请先同步后再保存", {
+            currentVersion: existing.rows[0].current_version,
+            publishedVersion: existing.rows[0].published_version
+          });
+        }
+        const menuId = existing.rowCount ? existing.rows[0].id : crypto.randomUUID();
+        const version = existing.rowCount ? existing.rows[0].current_version + 1 : 1;
+        if (existing.rowCount) {
+          await client.query(`
+            UPDATE web_menus SET display_name = $3, current_version = $2,
+              published_version = CASE WHEN $4 THEN $2 ELSE published_version END, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+          `, [menuId, version, displayName, publish]);
+        } else {
+          await client.query(`
+            INSERT INTO web_menus(id, server_id, menu_key, display_name, current_version, published_version)
+            VALUES ($1, $2, $3, $4, 1, CASE WHEN $5 THEN 1 ELSE NULL END)
+          `, [menuId, syncServer.id, menuKey, displayName, publish]);
+        }
         await client.query(`
-          UPDATE web_menus SET display_name = $3, current_version = $2,
-            published_version = CASE WHEN $4 THEN $2 ELSE published_version END, updated_at = now()
-          WHERE id = $1
-        `, [menuId, version, displayName, publish]);
+          INSERT INTO web_menu_versions(id, menu_id, version, document, created_by, change_note)
+          VALUES ($1, $2, $3, $4, $5, $6)
+        `, [crypto.randomUUID(), menuId, version, document, actor(request), "游戏内编辑"]);
+        await audit(client, request, "MENU_GAME_SAVE", syncServer.id, menuId, { version, published: publish });
+        return { menuId, key: menuKey, version, publishedVersion: publish ? version : existing.rows[0]?.published_version || null };
+      });
+    } catch (error) {
+      if (["23505", "ER_DUP_ENTRY"].includes(error.code)) {
+        throw new HttpError(409, "菜单已在 Web 端变化，请先同步后再保存");
+      }
+      throw error;
+    }
+    response.json(result);
+  }));
+
+  const loginAttempts = new Map();
+  function checkLoginRateLimit(request) {
+    const key = request.ip || "unknown";
+    const cutoff = Date.now() - 60_000;
+    const attempts = (loginAttempts.get(key) || []).filter((at) => at > cutoff);
+    if (loginAttempts.size > 10_000) {
+      for (const [candidate, timestamps] of loginAttempts) {
+        if (!timestamps.some((at) => at > cutoff)) loginAttempts.delete(candidate);
+      }
+    }
+    if (attempts.length >= 10) throw new HttpError(429, "登录尝试过于频繁，请稍后再试");
+    attempts.push(Date.now());
+    loginAttempts.set(key, attempts);
+  }
+
+  app.post("/api/auth/login", asyncRoute(async (request, response) => {
+    checkLoginRateLimit(request);
+    let username;
+    try { username = validateUsername(request.body?.username); }
+    catch { throw new HttpError(401, "账号或密码错误"); }
+    const password = String(request.body?.password || "");
+    if (password.length < 12 || password.length > 256) throw new HttpError(401, "账号或密码错误");
+    const user = await database.findUser(username);
+    if (!user || !user.active || !verifyPassword(password, user.password_hash)) {
+      throw new HttpError(401, "账号或密码错误");
+    }
+    const sessionToken = randomToken();
+    const csrfToken = randomToken();
+    const expiresAt = new Date(Date.now() + config.sessionTtlHours * 60 * 60 * 1000);
+    await database.createSession({
+      userId: user.id,
+      tokenHash: hashToken(sessionToken),
+      csrfTokenHash: hashToken(csrfToken),
+      expiresAt
+    });
+    setSessionCookie(response, sessionToken, config.sessionTtlHours * 60 * 60, config.sessionSecure);
+    response.json({ authenticated: true, user: { id: user.id, username: user.username }, csrfToken });
+  }));
+
+  app.use("/api", (request, response, next) => {
+    Promise.resolve().then(async () => {
+      if (sameSecret(request.get("x-api-key"), config.apiKey)) {
+        request.auth = { kind: "api", username: null };
       } else {
-        await client.query(`
-          INSERT INTO web_menus(id, server_id, menu_key, display_name, current_version, published_version)
-          VALUES ($1, $2, $3, $4, 1, CASE WHEN $5 THEN 1 ELSE NULL END)
-        `, [menuId, syncServer.id, menuKey, displayName, publish]);
+        const sessionToken = readCookie(request, "siyuan_session");
+        const session = sessionToken ? await database.findSession(hashToken(sessionToken)) : null;
+        if (!session || !session.active) return response.status(401).json({ error: "请先登录" });
+        request.auth = {
+          kind: "session",
+          username: session.username,
+          tokenHash: sessionToken && hashToken(sessionToken),
+          csrfTokenHash: session.csrf_token_hash
+        };
+        if (request.method !== "GET" && request.method !== "HEAD" && request.method !== "OPTIONS") {
+          const csrfToken = request.get("x-siyuan-csrf");
+          if (!csrfToken || !sameSecret(hashToken(csrfToken), session.csrf_token_hash)) {
+            return response.status(403).json({ error: "CSRF 令牌无效，请重新登录" });
+          }
+        }
       }
-      await client.query(`
-        INSERT INTO web_menu_versions(id, menu_id, version, document, created_by, change_note)
-        VALUES ($1, $2, $3, $4, $5, $6)
-      `, [crypto.randomUUID(), menuId, version, document, actor(request), "游戏内编辑"]);
-      await audit(client, request, "MENU_GAME_SAVE", syncServer.id, menuId, { version, published: publish });
-      return { menuId, key: menuKey, version, publishedVersion: publish ? version : existing.rows[0]?.published_version || null };
+      response.set("Cache-Control", "no-store");
+      next();
+    }).catch(next);
+  });
+
+  app.get("/api/session", (request, response) => response.json({
+    authenticated: true,
+    authMethod: request.auth.kind,
+    user: request.auth.username ? { username: request.auth.username } : null
+  }));
+
+  app.post("/api/auth/logout", asyncRoute(async (request, response) => {
+    if (request.auth.kind === "session" && request.auth.tokenHash) await database.deleteSession(request.auth.tokenHash);
+    clearSessionCookie(response, config.sessionSecure);
+    response.status(204).end();
+  }));
+
+  async function auditAi(request, action, details) {
+    await database.pool.query(
+      "INSERT INTO web_audit_log(server_id, menu_id, action, actor, details) VALUES (NULL, NULL, $1, $2, $3)",
+      [action, actor(request), details]
+    );
+  }
+
+  app.get("/api/ai/status", (_request, response) => response.json(aiService.status()));
+
+  app.post("/api/ai/task-draft", asyncRoute(async (request, response) => {
+    const result = await aiService.generateTask({
+      prompt: request.body?.prompt,
+      taskType: request.body?.taskType,
+      rateKey: `${actor(request)}:${request.ip}`
+    });
+    await auditAi(request, "AI_TASK_DRAFT", {
+      type: result.draft.type,
+      objectiveCount: result.draft.objectives.length,
+      rewardCount: result.draft.rewards.length
     });
     response.json(result);
   }));
 
-  app.use("/api", (request, response, next) => {
-    if (!sameSecret(request.get("x-api-key"), config.apiKey)) {
-      return response.status(401).json({ error: "API Key 无效" });
-    }
-    response.set("Cache-Control", "no-store");
-    next();
-  });
-
-  app.get("/api/session", (_request, response) => response.json({ authenticated: true }));
+  app.post("/api/ai/menu-draft", asyncRoute(async (request, response) => {
+    const result = await aiService.generateMenu({
+      prompt: request.body?.prompt,
+      rateKey: `${actor(request)}:${request.ip}`
+    });
+    await auditAi(request, "AI_MENU_DRAFT", {
+      size: result.document.size,
+      itemCount: result.document.items.length
+    });
+    response.json(result);
+  }));
 
   app.get("/api/servers", asyncRoute(async (_request, response) => {
+    const menuCount = database.dialect === "mysql" ? "CAST(COUNT(m.id) AS SIGNED)" : "count(m.id)::int";
     const result = await database.pool.query(`
       SELECT s.id, s.slug, s.display_name, s.description, s.created_at, s.updated_at,
-             count(m.id)::int AS menu_count
+             ${menuCount} AS menu_count
       FROM web_servers s LEFT JOIN web_menus m ON m.server_id = s.id
       GROUP BY s.id ORDER BY s.display_name
     `);
@@ -231,12 +359,13 @@ export function createApp(config, database) {
     const syncTokenHash = crypto.createHash("sha256").update(syncToken).digest("hex");
     const result = await transaction(database.pool, async (client) => {
       const updated = await client.query(
-        "UPDATE web_servers SET sync_token_hash = $2, updated_at = now() WHERE id = $1 RETURNING id, slug",
+        "UPDATE web_servers SET sync_token_hash = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1",
         [request.params.serverId, syncTokenHash]
       );
       if (!updated.rowCount) throw new HttpError(404, "服务器不存在");
+      const server = await client.query("SELECT id, slug FROM web_servers WHERE id = $1", [request.params.serverId]);
       await audit(client, request, "SYNC_TOKEN_ROTATE", request.params.serverId, null);
-      return updated.rows[0];
+      return server.rows[0];
     });
     response.json({ ...result, syncToken });
   }));
@@ -250,16 +379,20 @@ export function createApp(config, database) {
     const description = String(request.body.description || "").slice(0, 1000);
     try {
       const server = await transaction(database.pool, async (client) => {
-        const result = await client.query(
-          "INSERT INTO web_servers(id, slug, display_name, description, sync_token_hash) VALUES ($1, $2, $3, $4, $5) RETURNING id, slug, display_name, description, created_at, updated_at",
+        await client.query(
+          "INSERT INTO web_servers(id, slug, display_name, description, sync_token_hash) VALUES ($1, $2, $3, $4, $5)",
           [id, slug, displayName, description, syncTokenHash]
+        );
+        const result = await client.query(
+          "SELECT id, slug, display_name, description, created_at, updated_at FROM web_servers WHERE id = $1",
+          [id]
         );
         await audit(client, request, "SERVER_CREATE", id, null, { slug });
         return { ...result.rows[0], syncToken };
       });
       response.status(201).json(server);
     } catch (error) {
-      if (error.code === "23505") throw new HttpError(409, "服务器标识已存在");
+      if (["23505", "ER_DUP_ENTRY"].includes(error.code)) throw new HttpError(409, "服务器标识已存在");
       throw error;
     }
   }));
@@ -290,10 +423,11 @@ export function createApp(config, database) {
     const document = menuDocument(request.body.document || { title: `&6${displayName}`, size: 54, items: [] });
     try {
       const result = await transaction(database.pool, async (client) => {
-        const inserted = await client.query(`
+        await client.query(`
           INSERT INTO web_menus(id, server_id, menu_key, display_name, current_version)
-          VALUES ($1, $2, $3, $4, 1) RETURNING *
+          VALUES ($1, $2, $3, $4, 1)
         `, [menuId, request.params.serverId, menuKey, displayName]);
+        const inserted = await client.query("SELECT * FROM web_menus WHERE id = $1", [menuId]);
         await client.query(`
           INSERT INTO web_menu_versions(id, menu_id, version, document, created_by, change_note)
           VALUES ($1, $2, 1, $3, $4, $5)
@@ -303,8 +437,8 @@ export function createApp(config, database) {
       });
       response.status(201).json(result);
     } catch (error) {
-      if (error.code === "23503") throw new HttpError(404, "服务器不存在");
-      if (error.code === "23505") throw new HttpError(409, "该服务器已存在同名菜单标识");
+      if (["23503", "ER_NO_REFERENCED_ROW_2"].includes(error.code)) throw new HttpError(404, "服务器不存在");
+      if (["23505", "ER_DUP_ENTRY"].includes(error.code)) throw new HttpError(409, "该服务器已存在同名菜单标识");
       throw error;
     }
   }));
@@ -344,7 +478,7 @@ export function createApp(config, database) {
         INSERT INTO web_menu_versions(id, menu_id, version, document, created_by, change_note)
         VALUES ($1, $2, $3, $4, $5, $6)
       `, [crypto.randomUUID(), menu.id, nextVersion, document, actor(request), note]);
-      await client.query("UPDATE web_menus SET current_version = $2, updated_at = now() WHERE id = $1", [menu.id, nextVersion]);
+      await client.query("UPDATE web_menus SET current_version = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1", [menu.id, nextVersion]);
       await audit(client, request, "MENU_SAVE", menu.server_id, menu.id, { baseVersion, version: nextVersion, note });
       return { version: nextVersion, document };
     });
@@ -360,7 +494,7 @@ export function createApp(config, database) {
       if (!Number.isInteger(version) || version < 1 || version > menu.current_version) throw new HttpError(400, "发布版本无效");
       const exists = await client.query("SELECT 1 FROM web_menu_versions WHERE menu_id = $1 AND version = $2", [menu.id, version]);
       if (!exists.rowCount) throw new HttpError(404, "菜单版本不存在");
-      await client.query("UPDATE web_menus SET published_version = $2, updated_at = now() WHERE id = $1", [menu.id, version]);
+      await client.query("UPDATE web_menus SET published_version = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1", [menu.id, version]);
       await audit(client, request, "MENU_PUBLISH", menu.server_id, menu.id, { version });
       return { menuId: menu.id, publishedVersion: version };
     });

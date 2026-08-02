@@ -1,6 +1,6 @@
 const state = {
-  apiKey: sessionStorage.getItem("siyuan.apiKey") || "",
-  actor: sessionStorage.getItem("siyuan.actor") || "admin",
+  csrfToken: sessionStorage.getItem("siyuan.csrfToken") || "",
+  username: sessionStorage.getItem("siyuan.username") || "",
   servers: [],
   server: null,
   menus: [],
@@ -9,7 +9,9 @@ const state = {
   selectedSlot: null,
   dirty: false,
   dragSlot: null,
-  entityMode: null
+  entityMode: null,
+  aiEnabled: false,
+  aiDraft: null
 };
 
 const elements = Object.fromEntries([...document.querySelectorAll("[id]")].map((element) => [element.id, element]));
@@ -23,13 +25,20 @@ function toast(message, error = false) {
 }
 
 async function api(path, options = {}) {
-  const headers = { "X-API-Key": state.apiKey, "X-siyuan-Actor": state.actor, ...options.headers };
+  const method = String(options.method || "GET").toUpperCase();
+  const headers = { ...options.headers };
+  if (!new Set(["GET", "HEAD", "OPTIONS"]).has(method) && state.csrfToken) {
+    headers["X-siyuan-CSRF"] = state.csrfToken;
+  }
   if (options.body && !(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
-  const response = await fetch(path, { ...options, headers });
+  const response = await fetch(path, { ...options, method, headers, credentials: "same-origin" });
   if (response.status === 204) return null;
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    if (response.status === 401) openCredentials();
+    if (response.status === 401 || response.status === 403) {
+      clearSessionState();
+      if (path !== "/api/auth/login") openCredentials();
+    }
     const error = new Error(body.error || `请求失败 (${response.status})`);
     error.status = response.status;
     error.details = body.details;
@@ -38,9 +47,16 @@ async function api(path, options = {}) {
   return body;
 }
 
+function clearSessionState() {
+  state.csrfToken = "";
+  state.username = "";
+  sessionStorage.removeItem("siyuan.csrfToken");
+  sessionStorage.removeItem("siyuan.username");
+}
+
 function openCredentials() {
-  elements.apiKeyInput.value = state.apiKey;
-  elements.actorInput.value = state.actor;
+  elements.usernameInput.value = state.username;
+  elements.passwordInput.value = "";
   elements.credentialError.textContent = "";
   if (!elements.credentialDialog.open) elements.credentialDialog.showModal();
 }
@@ -59,6 +75,12 @@ async function loadServers(selectId) {
   renderServers();
   const target = state.servers.find((server) => server.id === selectId) || state.server && state.servers.find((server) => server.id === state.server.id);
   if (target) await selectServer(target);
+}
+
+async function loadAiStatus() {
+  const status = await api("/api/ai/status");
+  state.aiEnabled = Boolean(status.enabled);
+  elements.aiButton.classList.toggle("hidden", !state.aiEnabled);
 }
 
 function renderServers() {
@@ -286,9 +308,12 @@ async function publishMenu() {
 async function exportCurrent(format = "yaml") {
   if (!state.menu) return;
   const response = await fetch(`/api/menus/${state.menu.id}/export?format=${format}&version=${state.menu.selectedVersion}`, {
-    headers: { "X-API-Key": state.apiKey, "X-siyuan-Actor": state.actor }
+    credentials: "same-origin"
   });
-  if (!response.ok) return showError(new Error("导出失败"));
+  if (!response.ok) {
+    if (response.status === 401) openCredentials();
+    return showError(new Error("导出失败"));
+  }
   const blob = await response.blob();
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -312,20 +337,105 @@ function showError(error) {
   toast(error.message || "操作失败", true);
 }
 
+function updateAiDialog() {
+  const task = elements.aiKind.value === "task";
+  elements.aiTaskTypeField.classList.toggle("hidden", !task);
+  elements.aiPrompt.placeholder = task
+    ? "例如：做一个每天挖 32 个铁矿石的任务，给 60 通行证经验和 30 金币"
+    : "例如：做一个大厅导航菜单，包含出生点、全球商店、传送点和任务入口";
+  state.aiDraft = null;
+  elements.aiResultPanel.classList.add("hidden");
+  elements.aiCopyButton.classList.add("hidden");
+  elements.aiApplyButton.classList.add("hidden");
+}
+
+function openAiDialog() {
+  updateAiDialog();
+  elements.aiPrompt.value = "";
+  if (!elements.aiDialog.open) elements.aiDialog.showModal();
+}
+
+async function generateAiDraft() {
+  const task = elements.aiKind.value === "task";
+  if (!task && !state.menu) throw new Error("请先选择一个菜单，再生成菜单草稿");
+  const result = await api(task ? "/api/ai/task-draft" : "/api/ai/menu-draft", {
+    method: "POST",
+    body: JSON.stringify({
+      prompt: elements.aiPrompt.value,
+      taskType: task ? elements.aiTaskType.value : undefined
+    })
+  });
+  state.aiDraft = { kind: task ? "task" : "menu", result };
+  elements.aiSuggestedPath.value = task ? result.suggestedPath : `${state.menu.menu_key}（未保存草稿）`;
+  elements.aiResult.value = task ? result.yaml : JSON.stringify(result.document, null, 2);
+  elements.aiResultNote.textContent = task
+    ? (result.warnings || []).join(" ")
+    : "载入后仍需手动保存版本并发布。";
+  elements.aiResultPanel.classList.remove("hidden");
+  elements.aiCopyButton.classList.toggle("hidden", !task);
+  elements.aiApplyButton.classList.toggle("hidden", task);
+}
+
+async function copyAiYaml() {
+  if (state.aiDraft?.kind !== "task") return;
+  const value = state.aiDraft.result.yaml;
+  try {
+    await navigator.clipboard.writeText(value);
+  } catch {
+    elements.aiResult.focus();
+    elements.aiResult.select();
+    document.execCommand("copy");
+  }
+  toast("任务 YAML 已复制");
+}
+
+function applyAiMenuDraft() {
+  if (state.aiDraft?.kind !== "menu" || !state.menu) return;
+  if (!window.confirm("将替换当前未保存的菜单内容，继续吗？")) return;
+  state.draft = structuredClone(state.aiDraft.result.document);
+  state.selectedSlot = null;
+  normalizeDraft();
+  renderEditor();
+  setDirty();
+  elements.aiDialog.close();
+  toast("AI 菜单草稿已载入，尚未保存或发布");
+}
+
 elements.credentialForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  state.apiKey = elements.apiKeyInput.value;
-  state.actor = elements.actorInput.value;
   try {
-    await api("/api/session");
-    sessionStorage.setItem("siyuan.apiKey", state.apiKey);
-    sessionStorage.setItem("siyuan.actor", state.actor);
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: elements.usernameInput.value, password: elements.passwordInput.value })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "登录失败");
+    state.username = result.user.username;
+    state.csrfToken = result.csrfToken;
+    sessionStorage.setItem("siyuan.username", state.username);
+    sessionStorage.setItem("siyuan.csrfToken", state.csrfToken);
     elements.credentialDialog.close();
     await loadServers();
+    await loadAiStatus().catch(() => {
+      state.aiEnabled = false;
+      elements.aiButton.classList.add("hidden");
+    });
   } catch (error) {
     elements.credentialError.textContent = error.message;
   }
 });
+
+async function logout() {
+  if (!requireDiscard()) return;
+  try {
+    await api("/api/auth/logout", { method: "POST" });
+  } finally {
+    clearSessionState();
+    window.location.reload();
+  }
+}
 
 elements.entityForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -358,8 +468,21 @@ elements.importForm.addEventListener("submit", async (event) => {
   } catch (error) { showError(error); }
 });
 
+elements.aiForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (event.submitter?.value === "cancel") return elements.aiDialog.close();
+  try {
+    await generateAiDraft();
+  } catch (error) { showError(error); }
+});
+
 elements.addServerButton.addEventListener("click", () => showEntityDialog("server"));
 elements.addMenuButton.addEventListener("click", () => showEntityDialog("menu"));
+elements.aiButton.addEventListener("click", openAiDialog);
+elements.logoutButton.addEventListener("click", () => logout().catch(showError));
+elements.aiKind.addEventListener("change", updateAiDialog);
+elements.aiCopyButton.addEventListener("click", () => copyAiYaml().catch(showError));
+elements.aiApplyButton.addEventListener("click", applyAiMenuDraft);
 elements.saveButton.addEventListener("click", () => saveMenu().catch(showError));
 elements.publishButton.addEventListener("click", () => publishMenu().catch(showError));
 elements.importButton.addEventListener("click", () => {
@@ -398,5 +521,24 @@ elements.deleteItemButton.addEventListener("click", () => {
 });
 window.addEventListener("beforeunload", (event) => { if (state.dirty) event.preventDefault(); });
 
-if (state.apiKey) loadServers().catch(() => openCredentials());
-else openCredentials();
+async function initialize() {
+  const response = await fetch("/api/session", { credentials: "same-origin" });
+  const session = response.ok ? await response.json() : null;
+  if (!session || session.authMethod !== "session" || !state.csrfToken) {
+    openCredentials();
+    return;
+  }
+  state.username = session.user?.username || state.username;
+  sessionStorage.setItem("siyuan.username", state.username);
+  try {
+    await loadServers();
+    await loadAiStatus();
+  } catch (error) {
+    state.aiEnabled = false;
+    elements.aiButton.classList.add("hidden");
+    openCredentials();
+    showError(error);
+  }
+}
+
+initialize();

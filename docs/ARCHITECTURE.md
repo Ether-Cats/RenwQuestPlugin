@@ -18,7 +18,7 @@ Paper events/commands
              +-- Redis (quota/cache/metrics)
              +-- Vault (external economy)
 
-Browser --HTTPS--> Menu Web --PostgreSQL/JSONB
+Browser --HTTPS--> Menu Web --PostgreSQL or MySQL
                          ^
                          |
                outbound pull/push
@@ -42,8 +42,8 @@ Browser --HTTPS--> Menu Web --PostgreSQL/JSONB
 
 ## Web 与跨服菜单
 
-Web 控制面是独立 Node.js 服务，PostgreSQL 保存规范化 `JSONB` 菜单、不可变版本、发布指针和审计日志。管理 API 使用全局管理密钥，每个 `server-id` 使用只保存 SHA-256 的独立同步令牌。游戏服只发起出站 HTTPS，不监听管理端口，也不直连 PostgreSQL。
+Web 控制面是独立 Node.js 服务，可使用服主提供的 PostgreSQL 或 MySQL 保存规范化菜单、不可变版本、发布指针、审计和 Web 登录会话。浏览器使用账号密码会话；自动化管理 API 使用全局管理密钥；每个 `server-id` 使用只保存 SHA-256 的独立同步令牌。游戏服只发起出站 HTTPS，不监听管理端口，也不直连 Web 数据库。
 
-`RemoteMenuSyncService` 使用 ETag 轮询已发布版本，完整校验后原子替换本地 YAML；同步清单确保只删除此前由 Web 管理的文件。游戏内保存可通过同一服务器令牌写回新版本并自动发布，单线程操作队列避免同一实例上传乱序，PostgreSQL advisory lock 串行化同菜单的跨实例写入。
+`RemoteMenuSyncService` 使用 ETag 轮询已发布版本，完整校验后原子替换本地 YAML；同步清单确保只删除此前由 Web 管理的文件。游戏内保存可通过同一服务器令牌写回新版本并自动发布，单线程操作队列避免同一实例上传乱序。Web 事务、菜单行锁和版本号会串行化同菜单的跨实例写入；PostgreSQL 额外使用 advisory lock。
 
-玩法数据继续使用 MySQL，避免无收益的大规模迁移；Web 版本数据使用 PostgreSQL，是因为 `JSONB`、事务发布和版本查询更贴合该负载。Redis 仍作为奖励额度和经济指标共享层。AI 服务不应直接操作 Vault、发奖、菜单发布或管理密钥。
+玩法数据继续使用 MySQL，避免无收益的大规模迁移；Web 版本数据可按运维条件使用 PostgreSQL 或 MySQL，二者都通过参数化查询、事务和版本锁保证一致性。Redis 仍作为奖励额度和经济指标共享层。AI 服务不应直接操作 Vault、发奖、菜单发布或管理密钥。

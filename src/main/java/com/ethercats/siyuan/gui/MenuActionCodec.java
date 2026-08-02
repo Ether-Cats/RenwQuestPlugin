@@ -13,7 +13,8 @@ import java.util.Set;
  */
 public final class MenuActionCodec {
     private static final Set<String> SUPPORTED_TYPES = Set.of(
-        "command", "cmd", "chat", "console", "op", "tell", "message", "msg", "menu", "open", "sound"
+        "command", "cmd", "chat", "console", "op", "tell", "message", "msg", "menu", "open", "sound",
+        "catcher", "book"
     );
 
     private MenuActionCodec() {
@@ -81,6 +82,9 @@ public final class MenuActionCodec {
         action = replacePrefix(action, "打开菜单:", "menu:");
         action = replacePrefix(action, "菜单:", "menu:");
         action = replacePrefix(action, "声音:", "sound:");
+        action = replacePrefix(action, "聊天输入:", "catcher:");
+        action = replacePrefix(action, "书本输入:", "book:");
+        action = replacePrefix(action, "书本:", "book:");
 
         int separator = action.indexOf(':');
         if (separator < 0) return action.equalsIgnoreCase("close") ? "close" : action;
@@ -93,8 +97,36 @@ public final class MenuActionCodec {
         if (action.isEmpty() || action.length() > 512) return false;
         if (action.equals("close")) return true;
         int separator = action.indexOf(':');
-        return separator > 0 && separator < action.length() - 1
-            && SUPPORTED_TYPES.contains(action.substring(0, separator));
+        if (separator <= 0) return false;
+        String type = action.substring(0, separator);
+        return SUPPORTED_TYPES.contains(type)
+            && (separator < action.length() - 1 || type.equals("catcher") || type.equals("book"));
+    }
+
+    /**
+     * Detects direct and input-session console actions. Input-session actions
+     * may contain start=, end=, and cancel= actions after their identifier.
+     */
+    public static boolean hasConsoleAction(String raw) {
+        String action = normalize(raw);
+        int separator = action.indexOf(':');
+        if (separator <= 0) return false;
+
+        String type = action.substring(0, separator);
+        if (type.equals("console") || type.equals("op")) return true;
+        if (!type.equals("catcher") && !type.equals("book")) return false;
+
+        String body = action.substring(separator + 1);
+        for (String segment : body.split("\\|")) {
+            int assignment = segment.indexOf('=');
+            if (assignment <= 0) continue;
+            String key = segment.substring(0, assignment).trim().toLowerCase(Locale.ROOT);
+            if ((key.equals("start") || key.equals("end") || key.equals("cancel"))
+                && hasConsoleAction(segment.substring(assignment + 1))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static String replacePlaceholders(String text, Player player) {

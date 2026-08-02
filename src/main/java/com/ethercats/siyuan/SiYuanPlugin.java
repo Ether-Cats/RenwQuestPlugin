@@ -90,6 +90,7 @@ public class SiYuanPlugin extends JavaPlugin {
 
         getServer().getPluginManager().registerEvents(guiManager, this);
         getServer().getPluginManager().registerEvents(dynamicMenuManager, this);
+        getServer().getPluginManager().registerEvents(dynamicMenuManager.getInputManager(), this);
         getServer().getPluginManager().registerEvents(menuEditorManager, this);
         getServer().getPluginManager().registerEvents(new QuestListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerLifecycleListener(this), this);
@@ -126,6 +127,7 @@ public class SiYuanPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (remoteMenuSyncService != null) remoteMenuSyncService.stop();
+        if (dynamicMenuManager != null) dynamicMenuManager.shutdown();
         if (menuEditorManager != null) menuEditorManager.shutdown();
         // Cancel tasks
         if (dailyTaskId   > 0) getServer().getScheduler().cancelTask(dailyTaskId);

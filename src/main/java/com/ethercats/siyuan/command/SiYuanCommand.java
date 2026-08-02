@@ -368,7 +368,7 @@ public class SiYuanCommand implements CommandExecutor, TabCompleter {
         } else if (args.length == 4 && args[0].equalsIgnoreCase("menu") && args[1].equalsIgnoreCase("action")) {
             completions.addAll(List.of("left", "right", "all"));
         } else if (args.length == 5 && args[0].equalsIgnoreCase("menu") && args[1].equalsIgnoreCase("action")) {
-            completions.addAll(List.of("command:", "console:", "tell:", "menu:", "sound:", "close", "clear"));
+            completions.addAll(List.of("command:", "console:", "tell:", "menu:", "sound:", "catcher:", "book:", "close", "clear"));
         } else if (args.length == 4 && args[0].equalsIgnoreCase("wp") && args[1].equalsIgnoreCase("add")) {
             completions.addAll(List.of("RECOVERY_COMPASS", "RED_BED", "EMERALD", "LODESTONE", "NETHER_STAR"));
         }

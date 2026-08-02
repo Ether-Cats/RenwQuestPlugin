@@ -186,7 +186,7 @@ public final class MenuEditorManager implements Listener {
         String action = MenuActionCodec.normalize(requestedAction == null ? "" : requestedAction.trim());
         boolean clear = action.equalsIgnoreCase("clear") || action.equalsIgnoreCase("none");
         if (!clear && !isSupportedAction(action)) {
-            player.sendMessage("§c动作格式无效，可用 command:/console:/tell:/chat:/menu:/sound: 或 close");
+            player.sendMessage("§c动作格式无效，可用 command:/console:/tell:/chat:/menu:/sound:/catcher:/book: 或 close");
             return;
         }
 

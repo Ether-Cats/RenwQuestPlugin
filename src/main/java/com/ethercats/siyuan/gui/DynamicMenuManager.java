@@ -45,9 +45,11 @@ import java.util.stream.Stream;
 public final class DynamicMenuManager implements Listener {
     private final SiYuanPlugin plugin;
     private final Map<String, MenuDefinition> menus = new ConcurrentHashMap<>();
+    private final MenuInputManager inputManager;
 
     public DynamicMenuManager(SiYuanPlugin plugin) {
         this.plugin = plugin;
+        this.inputManager = new MenuInputManager(plugin, this);
         reload();
     }
 
@@ -76,7 +78,7 @@ public final class DynamicMenuManager implements Listener {
             try {
                 YamlConfiguration config = YamlConfiguration.loadConfiguration(path.toFile());
                 String sourceFileName = menuRoot.relativize(path).toString().replace(File.separatorChar, '/');
-                MenuDefinition menu = config.contains("layout") || config.contains("Layout")
+                MenuDefinition menu = config.contains("layout") || config.contains("Layout") || config.contains("Icons")
                     ? parseTrMenu(sourceFileName, config) : parseDeluxe(sourceFileName, config);
                 if (menu != null && menus.putIfAbsent(menu.name, menu) != null) {
                     plugin.getLogger().warning("[GFMenu] 忽略重复菜单标识 " + menu.name + ": " + sourceFileName);
@@ -90,6 +92,14 @@ public final class DynamicMenuManager implements Listener {
 
     public List<String> getMenuNames() {
         return menus.keySet().stream().sorted().toList();
+    }
+
+    public MenuInputManager getInputManager() {
+        return inputManager;
+    }
+
+    public void shutdown() {
+        inputManager.shutdown();
     }
 
     /**
@@ -368,25 +378,37 @@ public final class DynamicMenuManager implements Listener {
         return slots;
     }
 
-    private void runActions(Player player, List<String> actions) {
+    void runActions(Player player, List<String> actions) {
         if (actions == null) return;
         for (String raw : actions) {
-            if (raw == null || raw.isBlank()) continue;
-            String action = MenuActionCodec.normalize(MenuActionCodec.replacePlaceholders(raw, player));
-            int split = action.indexOf(':');
-            String type = split < 0 ? action.toLowerCase(Locale.ROOT) : action.substring(0, split).toLowerCase(Locale.ROOT);
-            String value = split < 0 ? "" : action.substring(split + 1).trim();
-            if (value.startsWith(" ")) value = value.trim();
-            switch (type) {
-                case "tell", "message", "msg" -> player.sendMessage(color(value));
-                case "command", "cmd" -> player.performCommand(stripSlash(value));
-                case "chat" -> player.chat(value);
-                case "op", "console" -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), stripSlash(value));
-                case "close" -> player.closeInventory();
-                case "menu", "open" -> open(player, value);
-                case "sound" -> playSound(player, value);
-                default -> plugin.getLogger().fine("[GFMenu] 未知动作: " + action);
+            executeAction(player, raw);
+        }
+    }
+
+    void executeAction(Player player, String raw) {
+        if (raw == null || raw.isBlank()) return;
+        String action = MenuActionCodec.normalize(MenuActionCodec.replacePlaceholders(raw, player));
+        int split = action.indexOf(':');
+        String type = split < 0 ? action.toLowerCase(Locale.ROOT) : action.substring(0, split).toLowerCase(Locale.ROOT);
+        String value = split < 0 ? "" : action.substring(split + 1).trim();
+        if (value.startsWith(" ")) value = value.trim();
+        switch (type) {
+            case "tell", "message", "msg" -> player.sendMessage(color(value));
+            case "command", "cmd" -> player.performCommand(stripSlash(value));
+            case "chat" -> player.chat(value);
+            case "op", "console" -> Bukkit.dispatchCommand(Bukkit.getConsoleSender(), stripSlash(value));
+            case "close" -> player.closeInventory();
+            case "menu", "open" -> open(player, value);
+            case "sound" -> playSound(player, value);
+            case "catcher" -> {
+                player.closeInventory();
+                inputManager.startCatcher(player, action);
             }
+            case "book" -> {
+                player.closeInventory();
+                inputManager.startBook(player, action);
+            }
+            default -> plugin.getLogger().fine("[GFMenu] 未知动作: " + action);
         }
     }
 

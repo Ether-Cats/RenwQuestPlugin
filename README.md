@@ -13,7 +13,7 @@ siyuan 以 [RenwQuestPlugin](https://github.com/Ether-Cats/RenwQuestPlugin)、[C
 - 分页全球市场：物品序列化上架、手续费销毁、购买数量选择、库存条件扣减、下架退回和交易审计。
 - 个人传送点：创建、传送、删除退款，世界未加载或传送失败自动退款。
 - Vault 是必需的经济前置；PlaceholderAPI、LuckPerms 可选集成；Redis 用于奖励额度和经济快照（不可用时奖励额度降级为本地计数）。
-- 自定义菜单采用 DeluxeMenus 的槽位模型，兼容导入常用 TrMenu/旧版顶层 slot 配置，并提供 Web 拖放编辑和游戏内箱子编辑；任意点击、关闭动作、发光和头颅所有者会保留在版本链中。
+- 自定义菜单采用 DeluxeMenus 的槽位模型，兼容导入常用 GFMenu、TrMenu 与旧版顶层 slot 配置，并提供 Web 拖放编辑和游戏内箱子编辑；支持聊天输入、书本输入、任意点击、关闭动作、发光和头颅所有者，并将其保留在版本链中。
 - 所有玩家数据、领取记录、交易、经济事件和传送点均使用 MySQL 持久化。
 
 ## 统一命令
@@ -81,7 +81,7 @@ rewards:                     # 可选的额外奖励
 mvn -DskipTests package
 ```
 
-产物为 `target/siyuan-1.0.0.jar`。项目使用 Shade 隔离 HikariCP、Jedis 和 Gson；Paper、Vault、PlaceholderAPI、LuckPerms 由服务器提供。
+产物为 `target/siyuan-1.1.0.jar`。项目使用 Shade 隔离 HikariCP、Jedis 和 Gson；Paper、Vault、PlaceholderAPI、LuckPerms 由服务器提供。
 
 发布前的最小验证命令如下；Maven 的 `package` 会执行插件单元测试，Web 端测试会覆盖认证、菜单编解码、版本冲突和服务器同步接口：
 
@@ -90,7 +90,7 @@ mvn clean package
 cd web && npm ci && npm test
 ```
 
-部署前请阅读 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)；其中说明了 Vault、MySQL、Redis、异地 Web、远程菜单安全策略以及单机/外置 PostgreSQL 两种部署方式。
+部署前请阅读 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)；其中说明了 Vault、MySQL、Redis、异地 Web、远程菜单安全策略以及 Web 使用服主提供的 MySQL 或 PostgreSQL 的部署方式。
 
 ## 本地依赖
 
@@ -115,7 +115,7 @@ docker compose -f docker/docker-compose.yml up -d
 
 ## 异地 Web 菜单管理
 
-[`web/`](web/) 已提供独立的 Node.js + PostgreSQL 控制面：浏览器中可拖放格子，编辑材质、数量、名称、Lore、左右键动作和权限；保存形成不可变版本，明确发布后才会下发。每台游戏服使用独立令牌通过出站 HTTPS 拉取，游戏服无需开放 HTTP 端口，也无需在 Minecraft 主机部署反向代理。
+[`web/`](web/) 已提供独立的 Node.js 控制面，可使用服主提供的 PostgreSQL 或 MySQL：浏览器中可拖放格子，编辑材质、数量、名称、Lore、左右键动作和权限；保存形成不可变版本，明确发布后才会下发。每台游戏服使用独立令牌通过出站 HTTPS 拉取，游戏服无需开放 HTTP 端口，也无需在 Minecraft 主机部署反向代理。
 
 ```yaml
 menu-sync:
@@ -130,4 +130,6 @@ menu-sync:
 
 Web 与游戏内修改会进入同一版本链，同一 `server-id` 的其他服务器可自动收到发布版本。网络、鉴权或文档校验失败时保留本地最后可用版本，文件写入使用临时文件和原子替换。完整部署及 API 说明见 [web/README.md](web/README.md)。
 
-PostgreSQL 只负责 Web 菜单的 `JSONB` 文档、版本和审计；现有玩家、经济和商店数据继续使用 MySQL，Redis 继续负责共享额度与指标。这样不需要冒险迁移已经稳定的玩法数据，也不会把数据库直接暴露给异地游戏服。AI 对话仍只保留架构边界，不拥有发奖、扣款或发布菜单权限。
+Web 数据库只负责菜单文档、版本、审计和 Web 登录会话；现有玩家、经济和商店数据继续使用 MySQL，Redis 继续负责共享额度与指标。这样不需要冒险迁移已经稳定的玩法数据，也不会把数据库直接暴露给异地游戏服。AI 对话仍只保留架构边界，不拥有发奖、扣款或发布菜单权限。
+
+Web 不是包含在插件 JAR 中的运行时。部署 Web 时应从本仓库的 [`web/`](web/) 目录构建，或下载 Release 附带的 `siyuan-web-v*.tar.gz` 部署包；两者内容相同。默认 `docker compose up -d --build` 只启动 Web 并连接服主提供的 PostgreSQL 或 MySQL，不会启动额外数据库容器。详细命令、账号密码登录和 AI 草稿配置见 [web/README.md](web/README.md)。

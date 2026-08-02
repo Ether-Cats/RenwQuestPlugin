@@ -348,8 +348,7 @@ public final class RemoteMenuSyncService {
 
     private boolean containsConsoleAction(Iterable<String> actions) {
         for (String action : actions) {
-            String normalized = MenuActionCodec.normalize(action);
-            if (normalized.startsWith("console:") || normalized.startsWith("op:")) return true;
+            if (MenuActionCodec.hasConsoleAction(action)) return true;
         }
         return false;
     }

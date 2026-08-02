@@ -1,47 +1,32 @@
 services:
-  postgres:
-    image: postgres:18.4-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-siyuan_web}
-      POSTGRES_USER: ${POSTGRES_USER:-siyuan_web}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-    volumes:
-      - siyuan-web-postgres:/var/lib/postgresql/data
-    networks:
-      - siyuan-web-internal
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-
   web:
     build: .
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
       PORT: 8080
-      DATABASE_URL: postgres://${POSTGRES_USER:-siyuan_web}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-siyuan_web}
+      DATABASE_TYPE: ${DATABASE_TYPE:-postgres}
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL in .env}
       SIYUAN_WEB_API_KEY: ${SIYUAN_WEB_API_KEY:?set SIYUAN_WEB_API_KEY in .env}
+      SIYUAN_WEB_ADMIN_USER: ${SIYUAN_WEB_ADMIN_USER:?set SIYUAN_WEB_ADMIN_USER in .env}
+      SIYUAN_WEB_ADMIN_PASSWORD: ${SIYUAN_WEB_ADMIN_PASSWORD:?set SIYUAN_WEB_ADMIN_PASSWORD in .env}
+      SIYUAN_WEB_SESSION_SECURE: ${SIYUAN_WEB_SESSION_SECURE:-true}
+      SIYUAN_WEB_SESSION_TTL_HOURS: ${SIYUAN_WEB_SESSION_TTL_HOURS:-12}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
       TRUST_PROXY: ${TRUST_PROXY:-1}
-      DB_SSL: ${DB_SSL:-false}
+      DB_SSL: ${DB_SSL:-true}
+      DB_SSL_VERIFY: ${DB_SSL_VERIFY:-true}
+      SIYUAN_AI_ENABLED: ${SIYUAN_AI_ENABLED:-false}
+      SIYUAN_AI_BASE_URL: "${SIYUAN_AI_BASE_URL:-https://api.openai.com/v1}"
+      SIYUAN_AI_API_KEY: "${SIYUAN_AI_API_KEY:-}"
+      SIYUAN_AI_MODEL: "${SIYUAN_AI_MODEL:-}"
+      SIYUAN_AI_TIMEOUT_MS: ${SIYUAN_AI_TIMEOUT_MS:-20000}
+      SIYUAN_AI_MAX_PROMPT_CHARS: ${SIYUAN_AI_MAX_PROMPT_CHARS:-2000}
+      SIYUAN_AI_MAX_TOKENS: ${SIYUAN_AI_MAX_TOKENS:-1200}
+      SIYUAN_AI_RATE_LIMIT_PER_MINUTE: ${SIYUAN_AI_RATE_LIMIT_PER_MINUTE:-6}
     ports:
       - "${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-8080}:8080"
-    networks:
-      - siyuan-web-internal
     read_only: true
     tmpfs:
       - /tmp
     security_opt:
       - no-new-privileges:true
-
-volumes:
-  siyuan-web-postgres:
-
-networks:
-  siyuan-web-internal:
-    driver: bridge

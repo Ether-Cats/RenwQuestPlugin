@@ -33,7 +33,8 @@ function normalizeAction(value) {
   const aliases = [
     ["控制台命令:", "console:"], ["控制台:", "console:"], ["玩家命令:", "command:"],
     ["命令:", "command:"], ["消息:", "message:"], ["提示:", "message:"],
-    ["聊天:", "chat:"], ["打开菜单:", "menu:"], ["菜单:", "menu:"], ["声音:", "sound:"]
+    ["聊天:", "chat:"], ["打开菜单:", "menu:"], ["菜单:", "menu:"], ["声音:", "sound:"],
+    ["聊天输入:", "catcher:"], ["书本输入:", "book:"], ["书本:", "book:"]
   ];
   for (const [prefix, replacement] of aliases) {
     if (action.startsWith(prefix)) {
