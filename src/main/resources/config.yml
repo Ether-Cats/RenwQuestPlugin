@@ -83,6 +83,44 @@ integrations:
   # 可选称号插件命令，不配置时仅提示玩家；支持 {player} 和 {title}
   title-command: ""
 
+# GFMenu/TrMenu 兼容的菜单别名。菜单 YAML 中可使用 Bindings.Commands:
+#   - "daily"
+# 仅注册不存在的安全命令名，绝不会覆盖其他插件已有命令。
+menu-command-bindings:
+  enabled: true
+  # Web 下发的菜单默认不能新增服务器命令别名；需要时由服主明确开启。
+  allow-remote: false
+
+# 周期公告。关闭时不会创建定时任务；支持 {online} 和 {max_players}。
+announcements:
+  enabled: false
+  interval-seconds: 300
+  messages:
+    - "&6[思渊] &f当前在线 &e{online}&f/&e{max_players}"
+
+# 轻量活动审计：异步写入 plugins/siyuan/audit/ 的按日文件。
+# 只记录玩家名、上下线和方块坐标/类型；不会记录 IP、聊天、背包或移动轨迹。
+activity-audit:
+  enabled: false
+  include-joins: true
+  include-blocks: true
+  flush-seconds: 5
+  queue-size: 2000
+
+# OpenAI 兼容游戏内助手。密钥只从 SIYUAN_AI_API_KEY 环境变量读取，绝不写入 YAML。
+# 默认只允许 HTTPS；使用本机 Ollama 等 HTTP 端点时才将 allow-insecure-http 改为 true。
+ai-assistant:
+  enabled: false
+  base-url: "https://api.openai.com/v1"
+  model: ""
+  timeout-seconds: 20
+  max-prompt-chars: 1000
+  max-response-chars: 1600
+  max-tokens: 512
+  rate-limit-per-minute: 6
+  allow-insecure-http: false
+  system-prompt: "你是 Minecraft 服务器管理员的助手。只提供文本建议，不执行命令。"
+
 # 独立 Web 菜单控制面。插件只主动拉取，不在游戏服开放 HTTP 端口。
 menu-sync:
   enabled: false

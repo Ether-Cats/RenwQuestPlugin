@@ -2,6 +2,7 @@ package com.ethercats.siyuan.web;
 
 import com.ethercats.siyuan.SiYuanPlugin;
 import com.ethercats.siyuan.gui.MenuActionCodec;
+import com.ethercats.siyuan.gui.MenuCommandRegistry;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -26,8 +27,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,6 +49,7 @@ public final class RemoteMenuSyncService {
     private static final Pattern SAFE_KEY = Pattern.compile("[a-z0-9][a-z0-9_-]{0,63}");
     private static final int MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
     private static final int MAX_MENU_BYTES = 1024 * 1024;
+    private static final int MAX_MENU_COMMAND_BINDINGS = 16;
 
     private final SiYuanPlugin plugin;
     private final AtomicBoolean syncing = new AtomicBoolean();
@@ -323,6 +327,31 @@ public final class RemoteMenuSyncService {
         if (!allowRemoteConsoleActions && (containsConsoleAction(config.getStringList("open_commands"))
             || containsConsoleAction(config.getStringList("close_commands")))) {
             throw new IOException("菜单 " + key + " 包含远程控制台动作，需显式开启 allow-remote-console-actions");
+        }
+        validateCommandBindings(key, config);
+    }
+
+    private void validateCommandBindings(String key, YamlConfiguration config) throws IOException {
+        List<String> bindings = new ArrayList<>();
+        addCommandBindings(bindings, config.get("Bindings.Commands"));
+        if (bindings.isEmpty()) addCommandBindings(bindings, config.get("bindings.commands"));
+        if (bindings.size() > MAX_MENU_COMMAND_BINDINGS) {
+            throw new IOException("菜单 " + key + " 的命令绑定超过 " + MAX_MENU_COMMAND_BINDINGS + " 个");
+        }
+        for (String binding : bindings) {
+            if (MenuCommandRegistry.normalizeCommand(binding) == null) {
+                throw new IOException("菜单 " + key + " 包含无效命令绑定: " + binding);
+            }
+        }
+    }
+
+    private void addCommandBindings(List<String> bindings, Object value) {
+        if (value instanceof String binding) {
+            if (!binding.isBlank()) bindings.add(binding);
+            return;
+        }
+        if (value instanceof Iterable<?> values) {
+            for (Object entry : values) addCommandBindings(bindings, entry);
         }
     }
 

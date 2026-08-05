@@ -136,7 +136,7 @@ public final class MenuInputManager implements Listener {
         }
     }
 
-    private static String replaceInput(String action, String input, String id) {
+    static String replaceInput(String action, String input, String id) {
         String value = input == null ? "" : input.replace('\r', ' ').replace('\n', ' ').trim();
         return action
             .replace("%book_input%", value)
@@ -144,7 +144,10 @@ public final class MenuInputManager implements Listener {
             .replace("%book_input_" + id + "%", value)
             .replace("{input}", value)
             .replace("%input%", value)
-            .replace("%player_input%", value);
+            .replace("%player_input%", value)
+            .replace("{meta:input}", value)
+            .replace("%trmenu_meta_input%", value)
+            .replace("%trmenu_meta_input-" + id + "%", value);
     }
 
     private static String color(String value) {

@@ -4,7 +4,7 @@ siyuan 是面向 Paper 1.21.4 的聚合插件，把通行证、任务、玩家�
 
 ## 整合来源
 
-siyuan 以 [RenwQuestPlugin](https://github.com/Ether-Cats/RenwQuestPlugin)、[CSD](https://github.com/Ether-Cats/CSD)、[SHOP](https://github.com/Ether-Cats/SHOP) 与 [GFMenu](https://github.com/levindurant303/GFMenu) 的功能边界为参考进行优化整合，而不是在服务器内同时加载四个独立插件。任务、通行证、市场、传送点和菜单统一为 `/gc` 命令、同一权限模型与可审计数据层；菜单兼容常用 GFMenu/DeluxeMenus/TrMenu 配置写法，并为后续赛季玩法、跨服运营与管理工具扩展预留边界。
+siyuan 以 [RenwQuestPlugin](https://github.com/Ether-Cats/RenwQuestPlugin)、[CSD](https://github.com/Ether-Cats/CSD)、[SHOP](https://github.com/Ether-Cats/SHOP) 与 [GFMenu](https://github.com/levindurant303/GFMenu) 的功能边界为参考进行优化整合，而不是在服务器内同时加载四个独立插件。任务、通行证、市场、传送点和菜单统一为 `/gc` 命令、同一权限模型与可审计数据层；菜单兼容常用 GFMenu/DeluxeMenus/TrMenu 配置写法。serverinfobk 的公告、状态、审计和 OpenAI 兼容问答也以安全实现纳入同一运行时，避免其原有的隐私广播、同步逐移动写盘和明文密钥问题。
 
 ## 当前能力
 
@@ -13,7 +13,8 @@ siyuan 以 [RenwQuestPlugin](https://github.com/Ether-Cats/RenwQuestPlugin)、[C
 - 分页全球市场：物品序列化上架、手续费销毁、购买数量选择、库存条件扣减、下架退回和交易审计。
 - 个人传送点：创建、传送、删除退款，世界未加载或传送失败自动退款。
 - Vault 是必需的经济前置；PlaceholderAPI、LuckPerms 可选集成；Redis 用于奖励额度和经济快照（不可用时奖励额度降级为本地计数）。
-- 自定义菜单采用 DeluxeMenus 的槽位模型，兼容导入常用 GFMenu、TrMenu 与旧版顶层 slot 配置，并提供 Web 拖放编辑和游戏内箱子编辑；支持聊天输入、书本输入、任意点击、关闭动作、发光和头颅所有者，并将其保留在版本链中。
+- 自定义菜单采用 DeluxeMenus 的槽位模型，兼容导入常用 GFMenu、TrMenu 与旧版顶层 slot 配置，并提供 Web 拖放编辑和游戏内箱子编辑；支持聊天输入、书本输入、任意点击、关闭动作、发光、头颅所有者、`Bindings.Commands` 菜单别名及单菜单热更新，并将其保留在版本链中。
+- 管理运行能力：管理员状态和在线诊断、可选周期公告、异步有界活动审计，以及默认关闭的 OpenAI 兼容游戏内助手。
 - 所有玩家数据、领取记录、交易、经济事件和传送点均使用 MySQL 持久化。
 
 ## 统一命令
@@ -32,8 +33,11 @@ siyuan 以 [RenwQuestPlugin](https://github.com/Ether-Cats/RenwQuestPlugin)、[C
 /gc menu action <槽位> <left|right|all> <set|add|remove|clear> [动作|序号]
 /gc menu title <标题>
 /gc menu permission <权限|none>
-/gc menu save|cancel|reload|sync
+/gc menu save|cancel|commands|reload|sync
 /gc season ...              管理员赛季命令
+/gc admin <status|players>  管理员查看服务与在线诊断
+/gc ai ask <问题>           使用 OpenAI 兼容游戏内助手（默认仅 OP）
+/gc ai status               管理员查看 AI 配置状态
 /gc reload                  重载插件
 ```
 
@@ -131,6 +135,6 @@ menu-sync:
 
 Web 与游戏内修改会进入同一版本链，同一 `server-id` 的其他服务器可自动收到发布版本。网络、鉴权或文档校验失败时保留本地最后可用版本，文件写入使用临时文件和原子替换。完整部署及 API 说明见 [web/README.md](web/README.md)。
 
-Web 数据库只负责菜单文档、版本、审计和 Web 登录会话；现有玩家、经济和商店数据继续使用 MySQL，Redis 继续负责共享额度与指标。这样不需要冒险迁移已经稳定的玩法数据，也不会把数据库直接暴露给异地游戏服。AI 对话仍只保留架构边界，不拥有发奖、扣款或发布菜单权限。
+Web 数据库只负责菜单文档、版本、审计和 Web 登录会话；现有玩家、经济和商店数据继续使用 MySQL，Redis 继续负责共享额度与指标。这样不需要冒险迁移已经稳定的玩法数据，也不会把数据库直接暴露给异地游戏服。游戏内 AI 不拥有发奖、扣款、执行命令或发布菜单权限。
 
 Web 不是包含在插件 JAR 中的运行时。部署 Web 时应从本仓库的 [`web/`](web/) 目录构建，或下载 Release 附带的 `siyuan-web-v*.tar.gz` 部署包；两者内容相同。默认 `docker compose up -d --build` 只启动 Web 并连接服主提供的 PostgreSQL 或 MySQL，不会启动额外数据库容器。详细命令、账号密码登录和 AI 草稿配置见 [web/README.md](web/README.md)。

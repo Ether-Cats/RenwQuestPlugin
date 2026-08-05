@@ -46,14 +46,17 @@ public final class DynamicMenuManager implements Listener {
     private final SiYuanPlugin plugin;
     private final Map<String, MenuDefinition> menus = new ConcurrentHashMap<>();
     private final MenuInputManager inputManager;
+    private final MenuCommandRegistry commandRegistry;
 
     public DynamicMenuManager(SiYuanPlugin plugin) {
         this.plugin = plugin;
+        this.commandRegistry = new MenuCommandRegistry(plugin, this);
         this.inputManager = new MenuInputManager(plugin, this);
         reload();
     }
 
-    public void reload() {
+    public synchronized void reload() {
+        commandRegistry.unregisterAllCommands();
         menus.clear();
         File folder = new File(plugin.getDataFolder(), "menus");
         if (!folder.exists() && !folder.mkdirs()) {
@@ -76,13 +79,7 @@ public final class DynamicMenuManager implements Listener {
         }
         for (Path path : files) {
             try {
-                YamlConfiguration config = YamlConfiguration.loadConfiguration(path.toFile());
-                String sourceFileName = menuRoot.relativize(path).toString().replace(File.separatorChar, '/');
-                MenuDefinition menu = config.contains("layout") || config.contains("Layout") || config.contains("Icons")
-                    ? parseTrMenu(sourceFileName, config) : parseDeluxe(sourceFileName, config);
-                if (menu != null && menus.putIfAbsent(menu.name, menu) != null) {
-                    plugin.getLogger().warning("[GFMenu] 忽略重复菜单标识 " + menu.name + ": " + sourceFileName);
-                }
+                installMenu(loadMenu(menuRoot, path));
             } catch (Exception ex) {
                 plugin.getLogger().warning("[GFMenu] 菜单加载失败 " + path.getFileName() + ": " + ex.getMessage());
             }
@@ -98,7 +95,16 @@ public final class DynamicMenuManager implements Listener {
         return inputManager;
     }
 
+    public int getMenuCommandBindingCount() {
+        return commandRegistry.getRegisteredCommandCount();
+    }
+
+    public List<String> getMenuCommandBindings() {
+        return commandRegistry.getRegisteredCommandNames();
+    }
+
     public void shutdown() {
+        commandRegistry.unregisterAllCommands();
         inputManager.shutdown();
     }
 
@@ -156,6 +162,7 @@ public final class DynamicMenuManager implements Listener {
         }
         String name = normalize(draft.name());
         int rows = Math.max(1, Math.min(6, draft.rows()));
+        MenuDefinition existing = menus.get(name);
         YamlConfiguration config = new YamlConfiguration();
         config.set("siyuan_menu_key", name);
         config.set("menu_title", toAmpersandColors(draft.title()));
@@ -169,6 +176,11 @@ public final class DynamicMenuManager implements Listener {
         if (!draft.closeActions().isEmpty()) {
             config.set("close_commands", toDeluxeActions(draft.closeActions()));
         }
+        // The inventory editor does not expose alias editing, but it must not
+        // erase GFMenu command bindings when saving an imported menu.
+        if (existing != null && !existing.commandBindings.isEmpty()) {
+            config.set("Bindings.Commands", existing.commandBindings);
+        }
 
         draft.items().stream()
             .filter(item -> item.slot() >= 0 && item.slot() < rows * 9)
@@ -179,7 +191,6 @@ public final class DynamicMenuManager implements Listener {
         if (!folder.exists() && !folder.mkdirs()) {
             throw new IOException("无法创建菜单目录: " + folder);
         }
-        MenuDefinition existing = menus.get(name);
         String fileName = existing == null ? name + ".yml" : existing.sourceFileName;
         Path menuRoot = folder.toPath().toAbsolutePath().normalize();
         Path target = menuRoot.resolve(fileName).normalize();
@@ -197,7 +208,7 @@ public final class DynamicMenuManager implements Listener {
         } finally {
             Files.deleteIfExists(temporary);
         }
-        reload();
+        reloadSavedMenu(menuRoot, target, name);
     }
 
     public boolean open(Player player, String name) {
@@ -260,6 +271,7 @@ public final class DynamicMenuManager implements Listener {
         if (!config.getBoolean("open_requires_permission", menu.permission != null)) menu.permission = null;
         menu.openActions = MenuActionCodec.fromDeluxe(config.getStringList("open_commands"));
         menu.closeActions = MenuActionCodec.fromDeluxe(config.getStringList("close_commands"));
+        menu.commandBindings = readCommandBindings(config);
         ConfigurationSection itemContainer = config.getConfigurationSection("items");
         if (itemContainer != null) parseDeluxeItems(menu, itemContainer);
         parseDeluxeItems(menu, config);
@@ -296,6 +308,7 @@ public final class DynamicMenuManager implements Listener {
         menu.permission = config.getString("Settings.permission");
         menu.openActions = MenuActionCodec.fromDeluxe(config.getStringList("Events.Open"));
         menu.closeActions = MenuActionCodec.fromDeluxe(config.getStringList("Events.Close"));
+        menu.commandBindings = readCommandBindings(config);
         Map<Character, Integer> slots = layoutSlots(rows, config.getBoolean("Settings.center", true));
         ConfigurationSection icons = config.getConfigurationSection("Icons");
         if (icons != null) {
@@ -313,14 +326,10 @@ public final class DynamicMenuManager implements Listener {
                 item.lore = source.getStringList("lore");
                 item.glowing = source.getBoolean("glow", section.getBoolean("glow", false));
                 item.skullOwner = source.getString("skull_owner", section.getString("skull_owner"));
-                Object actions = section.get("actions");
-                if (actions instanceof ConfigurationSection actionSection) {
-                    item.leftActions = MenuActionCodec.fromDeluxe(actionSection.getStringList("left"));
-                    item.rightActions = MenuActionCodec.fromDeluxe(actionSection.getStringList("right"));
-                    item.allActions = MenuActionCodec.fromDeluxe(actionSection.getStringList("all"));
-                } else {
-                    item.allActions = MenuActionCodec.fromDeluxe(section.getStringList("actions"));
-                }
+                TrMenuActionParser.ClickActions actions = TrMenuActionParser.parse(section.get("actions"));
+                item.leftActions = actions.left();
+                item.rightActions = actions.right();
+                item.allActions = actions.all();
                 menu.items.put(item.slot, item);
             }
         }
@@ -329,6 +338,70 @@ public final class DynamicMenuManager implements Listener {
 
     private List<String> toDeluxeActions(List<String> actions) {
         return MenuActionCodec.toDeluxe(actions);
+    }
+
+    private MenuDefinition loadMenu(Path menuRoot, Path path) {
+        YamlConfiguration config = YamlConfiguration.loadConfiguration(path.toFile());
+        String sourceFileName = menuRoot.relativize(path).toString().replace(File.separatorChar, '/');
+        return config.contains("layout") || config.contains("Layout") || config.contains("Icons")
+            ? parseTrMenu(sourceFileName, config) : parseDeluxe(sourceFileName, config);
+    }
+
+    private void installMenu(MenuDefinition menu) {
+        if (menu == null) return;
+        if (menus.putIfAbsent(menu.name, menu) != null) {
+            plugin.getLogger().warning("[GFMenu] 忽略重复菜单标识 " + menu.name + ": " + menu.sourceFileName);
+            return;
+        }
+        registerMenuCommands(menu);
+    }
+
+    private void reloadSavedMenu(Path menuRoot, Path target, String previousName) throws IOException {
+        MenuDefinition updated = loadMenu(menuRoot, target);
+        if (updated == null) throw new IOException("保存后的菜单无法解析");
+
+        MenuDefinition previous = menus.remove(previousName);
+        if (previous != null) commandRegistry.unregisterMenuCommands(previous.name);
+        MenuDefinition duplicate = menus.putIfAbsent(updated.name, updated);
+        if (duplicate != null) {
+            if (previous != null) {
+                menus.putIfAbsent(previous.name, previous);
+                registerMenuCommands(previous);
+            }
+            throw new IOException("菜单标识与 " + duplicate.sourceFileName + " 冲突");
+        }
+        registerMenuCommands(updated);
+        plugin.getLogger().info("[GFMenu] 已更新菜单 " + updated.name + "，无需全量重载");
+    }
+
+    private void registerMenuCommands(MenuDefinition menu) {
+        if (menu.commandBindings.isEmpty()
+            || !plugin.getConfig().getBoolean("menu-command-bindings.enabled", true)) {
+            return;
+        }
+        if (isRemoteMenu(menu.sourceFileName)
+            && !plugin.getConfig().getBoolean("menu-command-bindings.allow-remote", false)) {
+            plugin.getLogger().info("[GFMenu] 远程菜单 " + menu.name + " 的命令绑定已按配置跳过");
+            return;
+        }
+        commandRegistry.registerMenuCommands(menu.name, menu.commandBindings, menu.permission);
+    }
+
+    private List<String> readCommandBindings(YamlConfiguration config) {
+        List<String> bindings = new ArrayList<>();
+        addBindingValues(bindings, config.get("Bindings.Commands"));
+        if (bindings.isEmpty()) addBindingValues(bindings, config.get("bindings.commands"));
+        return List.copyOf(bindings);
+    }
+
+    private void addBindingValues(List<String> bindings, Object value) {
+        if (value instanceof String command) {
+            if (!command.isBlank()) bindings.add(command);
+            return;
+        }
+        if (value instanceof Iterable<?> values) {
+            for (Object entry : values) addBindingValues(bindings, entry);
+        }
     }
 
     private void writeDeluxeItem(YamlConfiguration config, EditableMenuItem editable) {
@@ -478,6 +551,7 @@ public final class DynamicMenuManager implements Listener {
         private String permission;
         private List<String> openActions = List.of();
         private List<String> closeActions = List.of();
+        private List<String> commandBindings = List.of();
         private final Map<Integer, MenuItem> items = new LinkedHashMap<>();
         private MenuDefinition(String name, String sourceFileName) {
             this.name = name.toLowerCase(Locale.ROOT);
@@ -544,6 +618,10 @@ public final class DynamicMenuManager implements Listener {
     private boolean isRemoteMenu(Path root, Path path) {
         Path relative = root.relativize(path);
         return relative.getNameCount() > 0 && relative.getName(0).toString().equals(".remote");
+    }
+
+    private boolean isRemoteMenu(String sourceFileName) {
+        return sourceFileName != null && sourceFileName.startsWith(".remote/");
     }
 
     private void backupExistingMenu(Path root, Path target) throws IOException {

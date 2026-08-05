@@ -13,7 +13,7 @@ softdepend:
 commands:
   gc:
     description: siyuan 聚合功能主命令
-    usage: /gc <pass|quest|season|shop|wp|menu|reload|help>
+    usage: /gc <pass|quest|season|shop|wp|menu|admin|ai|reload|help>
     permission: siyuan.use
 
 permissions:
@@ -22,6 +22,9 @@ permissions:
     default: true
   siyuan.admin:
     description: 思渊管理员权限
+    default: op
+  siyuan.ai.use:
+    description: 使用思渊游戏内 AI 助手
     default: op
   siyuan.pass.free:
     description: 免费档通行证

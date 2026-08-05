@@ -188,6 +188,64 @@ items:
 
 编辑器内现有菜单物品是临时虚拟副本，结束编辑后会清理；从背包放入的真实物品会作为菜单模板保存，并归还给编辑者。不要让非管理员获得 `siyuan.admin`。
 
+### GFMenu 命令别名与局部热更新
+
+TrMenu/GFMenu 菜单可保留 `Bindings.Commands`，让玩家直接通过一个命令打开菜单。SiYuan 仅接受小写字母、数字、`_`、`-`、`:` 组成的标签，拒绝覆盖已存在的服务器命令；菜单保存时只卸载并重新注册该菜单自己的别名，不会全量重载其他菜单。
+
+```yaml
+Title: "&6每日任务"
+layout:
+  - "    A    "
+Bindings:
+  Commands:
+    - "daily"
+    - "/daily-quests"
+Settings:
+  permission: "siyuan.quest.daily"
+```
+
+默认 `menu-command-bindings.enabled: true`，所以上例会注册 `/daily` 与 `/daily-quests`。管理员可用 `/gc menu commands` 查看当前真正注册成功的别名。游戏内编辑器不会提供别名编辑 UI，但会保留已导入菜单的 `Bindings.Commands`；需要增加或删除别名时修改 YAML 或 Web 菜单源后执行 `/gc menu reload`。
+
+远程 Web 菜单默认不允许注册命令别名，即使其 YAML 含有 `Bindings.Commands`。只有完全信任控制面并在每台游戏服明确设置 `menu-command-bindings.allow-remote: true` 时才会启用；同步时仍会校验格式和每菜单最多 16 个别名。
+
+## 运行管理、公告、审计与 AI
+
+`/gc admin status` 汇总 Paper、TPS/MSPT、JVM、磁盘、MySQL、Redis、菜单别名、远程同步、公告、审计和 AI 状态。`/gc admin players` 仅限管理员，显示在线玩家的游戏模式、生命值和区块坐标以便排障；它不显示 IP、UUID、背包或 OP 状态。
+
+```yaml
+announcements:
+  enabled: true
+  interval-seconds: 300
+  messages:
+    - "&6[思渊] &f当前在线 &e{online}&f/&e{max_players}"
+
+activity-audit:
+  enabled: true
+  include-joins: true
+  include-blocks: true
+  flush-seconds: 5
+  queue-size: 2000
+```
+
+公告间隔会限制在 10 秒到一天之间，并按消息顺序循环。活动审计采用有界内存队列并异步写入 `plugins/siyuan/audit/activity-YYYY-MM-DD.log`，只记录玩家名、加入/退出、方块放置和破坏的世界/坐标/类型。它明确不采集 IP、聊天内容、背包、UUID 或逐移动轨迹；队列满时丢弃事件并在控制台限频告警，避免影响主线程。
+
+游戏内 AI 使用 OpenAI Chat Completions 兼容接口，默认关闭且需要 `siyuan.ai.use`（默认 OP）：
+
+```yaml
+ai-assistant:
+  enabled: true
+  base-url: "https://api.openai.com/v1"
+  model: "your-model"
+  timeout-seconds: 20
+  max-prompt-chars: 1000
+  max-response-chars: 1600
+  max-tokens: 512
+  rate-limit-per-minute: 6
+  allow-insecure-http: false
+```
+
+在启动 Paper 的服务管理器环境中设置 `SIYUAN_AI_API_KEY`；该变量优先且是唯一读取位置，插件没有 `/setkey` 命令，也不会把密钥写回 YAML。使用本机 HTTP 提供商时需明确设置 `allow-insecure-http: true`。玩家执行 `/gc ai ask <问题>` 后，网络请求和 JSON 解析都在异步线程完成，回复回到主线程作为普通文本发送；模型输出永远不会被当作服务器命令、菜单动作、经济操作或管理指令执行。`/gc ai status` 仅显示模型与主机，不显示密钥。
+
 ## 异地 Web 菜单管理
 
 在 Web 管理端创建游戏服务器后，会得到一次性的 `server-id` 和同步令牌。将其填入对应游戏服：

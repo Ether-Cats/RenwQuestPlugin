@@ -5,6 +5,9 @@ import com.ethercats.siyuan.core.DatabaseManager;
 import com.ethercats.siyuan.core.RedisManager;
 import com.ethercats.siyuan.core.service.EconomyService;
 import com.ethercats.siyuan.core.service.MessageService;
+import com.ethercats.siyuan.core.service.AnnouncementService;
+import com.ethercats.siyuan.core.service.ActivityAuditService;
+import com.ethercats.siyuan.core.service.AiAssistantService;
 import com.ethercats.siyuan.pass.PassManager;
 import com.ethercats.siyuan.quest.QuestManager;
 import com.ethercats.siyuan.season.SeasonManager;
@@ -46,6 +49,9 @@ public class SiYuanPlugin extends JavaPlugin {
     private DynamicMenuManager dynamicMenuManager;
     private MenuEditorManager menuEditorManager;
     private RemoteMenuSyncService remoteMenuSyncService;
+    private AnnouncementService announcementService;
+    private ActivityAuditService activityAuditService;
+    private AiAssistantService aiAssistantService;
 
     // Task IDs
     private int dailyTaskId  = -1;
@@ -87,11 +93,15 @@ public class SiYuanPlugin extends JavaPlugin {
         dynamicMenuManager = new DynamicMenuManager(this);
         menuEditorManager = new MenuEditorManager(this, dynamicMenuManager);
         remoteMenuSyncService = new RemoteMenuSyncService(this);
+        announcementService = new AnnouncementService(this);
+        activityAuditService = new ActivityAuditService(this);
+        aiAssistantService = new AiAssistantService(this);
 
         getServer().getPluginManager().registerEvents(guiManager, this);
         getServer().getPluginManager().registerEvents(dynamicMenuManager, this);
         getServer().getPluginManager().registerEvents(dynamicMenuManager.getInputManager(), this);
         getServer().getPluginManager().registerEvents(menuEditorManager, this);
+        getServer().getPluginManager().registerEvents(activityAuditService, this);
         getServer().getPluginManager().registerEvents(new QuestListener(this), this);
         getServer().getPluginManager().registerEvents(new PlayerLifecycleListener(this), this);
 
@@ -116,6 +126,8 @@ public class SiYuanPlugin extends JavaPlugin {
         scheduleResetTasks();
         scheduleDailySnapshot();
         remoteMenuSyncService.start();
+        announcementService.start();
+        activityAuditService.start();
 
         getLogger().info("=============================");
         getLogger().info("  siyuan 思渊插件已启动 v" + getDescription().getVersion());
@@ -127,8 +139,11 @@ public class SiYuanPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         if (remoteMenuSyncService != null) remoteMenuSyncService.stop();
-        if (dynamicMenuManager != null) dynamicMenuManager.shutdown();
+        if (announcementService != null) announcementService.stop();
+        if (activityAuditService != null) activityAuditService.stop();
+        if (aiAssistantService != null) aiAssistantService.shutdown();
         if (menuEditorManager != null) menuEditorManager.shutdown();
+        if (dynamicMenuManager != null) dynamicMenuManager.shutdown();
         // Cancel tasks
         if (dailyTaskId   > 0) getServer().getScheduler().cancelTask(dailyTaskId);
         if (snapshotTaskId > 0) getServer().getScheduler().cancelTask(snapshotTaskId);
@@ -194,6 +209,9 @@ public class SiYuanPlugin extends JavaPlugin {
         shopManager.reload();
         dynamicMenuManager.reload();
         remoteMenuSyncService.start();
+        announcementService.start();
+        activityAuditService.start();
+        aiAssistantService.reload();
         if (dailyTaskId > 0) getServer().getScheduler().cancelTask(dailyTaskId);
         scheduleResetTasks();
     }
@@ -213,6 +231,9 @@ public class SiYuanPlugin extends JavaPlugin {
     public DynamicMenuManager getDynamicMenuManager() { return dynamicMenuManager; }
     public MenuEditorManager getMenuEditorManager() { return menuEditorManager; }
     public RemoteMenuSyncService getRemoteMenuSyncService() { return remoteMenuSyncService; }
+    public AnnouncementService getAnnouncementService() { return announcementService; }
+    public ActivityAuditService getActivityAuditService() { return activityAuditService; }
+    public AiAssistantService getAiAssistantService() { return aiAssistantService; }
 
     private void copyBundledResources() {
         String[] resources = {
