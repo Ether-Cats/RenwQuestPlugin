@@ -1,0 +1,139 @@
+# siyuan 思渊插件主配置文件
+
+prefix: "&6[思渊] &r"
+language: "zh_CN"
+
+database:
+  host: "127.0.0.1"
+  port: 3307
+  database: "siyuan"
+  username: "siyuan"
+  password: "siyuan_pass_2024"
+  # 远程数据库请启用 TLS；本机 Compose 默认关闭以便零配置启动
+  ssl: false
+  allow-public-key-retrieval: true
+
+redis:
+  enabled: true
+  host: "127.0.0.1"
+  port: 6380
+  password: "siyuan_redis_2024"
+
+# 通行证设置
+pass:
+  default-pass: "default"
+  # 经济档位价格（购买 premium/vip 档位需要的货币）
+  tier-prices:
+    premium: 500.0
+    vip: 1500.0
+  # 通胀控制：奖励货币的全局倍率（0.0-1.0，1.0=全额给，0.8=给80%）
+  reward-money-multiplier: 0.85
+
+# 经济系统
+economy:
+  # 每名玩家每天通过通行证等奖励最多铸造的货币
+  max-daily-reward-per-player: 5000.0
+
+# 任务设置
+quest:
+  # 每日任务重置时间（服务器时区，24小时制）
+  daily-reset-hour: 0
+  daily-reset-minute: 0
+  # 每周重置：MONDAY/TUESDAY/...
+  weekly-reset-day: "MONDAY"
+  # 每次完成任务后，经验给予的全局倍率
+  exp-multiplier: 1.0
+  # 每周期按玩家 UUID 稳定抽取的任务数量；0 表示该类型全部展示
+  assignment-limits:
+    daily: 10
+    weekly: 30
+    seasonal: 0
+    story: 0
+    challenge: 0
+
+# 商店设置
+shop:
+  # 上架手续费（从卖家收取，货币销毁，控制通胀）
+  listing-fee: 0.05        # 5% 手续费
+  # 最高单品定价
+  max-price-per-unit: 100000.0
+  # 单次上架最大数量
+  max-listing-amount: 128
+  # 每个玩家最大上架商品数
+  max-listings-per-player: 16
+  default-price-per-unit: 10.0
+  # 是否启用价格历史参考（防止暴涨暴跌）
+  price-history: true
+
+# 传送点设置
+waypoint:
+  max-waypoints: 18
+  prices:
+    add: 10.0
+    teleport: 2.0
+    refund: 8.0
+
+# 排行榜设置
+leaderboard:
+  enabled: true
+  update-interval: 300   # 秒
+  top-size: 100
+
+integrations:
+  # 可选称号插件命令，不配置时仅提示玩家；支持 {player} 和 {title}
+  title-command: ""
+
+# GFMenu/TrMenu 兼容的菜单别名。菜单 YAML 中可使用 Bindings.Commands:
+#   - "daily"
+# 仅注册不存在的安全命令名，绝不会覆盖其他插件已有命令。
+menu-command-bindings:
+  enabled: true
+  # Web 下发的菜单默认不能新增服务器命令别名；需要时由服主明确开启。
+  allow-remote: false
+
+# 周期公告。关闭时不会创建定时任务；支持 {online} 和 {max_players}。
+announcements:
+  enabled: false
+  interval-seconds: 300
+  messages:
+    - "&6[思渊] &f当前在线 &e{online}&f/&e{max_players}"
+
+# 轻量活动审计：异步写入 plugins/siyuan/audit/ 的按日文件。
+# 只记录玩家名、上下线和方块坐标/类型；不会记录 IP、聊天、背包或移动轨迹。
+activity-audit:
+  enabled: false
+  include-joins: true
+  include-blocks: true
+  flush-seconds: 5
+  queue-size: 2000
+
+# OpenAI 兼容游戏内助手。密钥只从 SIYUAN_AI_API_KEY 环境变量读取，绝不写入 YAML。
+# 默认只允许 HTTPS；使用本机 Ollama 等 HTTP 端点时才将 allow-insecure-http 改为 true。
+ai-assistant:
+  enabled: false
+  base-url: "https://api.openai.com/v1"
+  model: ""
+  timeout-seconds: 20
+  max-prompt-chars: 1000
+  max-response-chars: 1600
+  max-tokens: 512
+  rate-limit-per-minute: 6
+  allow-insecure-http: false
+  system-prompt: "你是 Minecraft 服务器管理员的助手。只提供文本建议，不执行命令。"
+
+# 独立 Web 菜单控制面。插件只主动拉取，不在游戏服开放 HTTP 端口。
+menu-sync:
+  enabled: false
+  base-url: "https://menu.example.com"
+  # 在 Web 管理端创建的服务器标识
+  server-id: "lobby-1"
+  # 生产环境推荐使用 SIYUAN_WEB_SYNC_TOKEN 环境变量，至少 32 字符
+  sync-token: ""
+  poll-seconds: 30
+  timeout-seconds: 8
+  # 游戏内保存后创建 Web 版本并立即发布，使同组服务器收到更新
+  push-game-edits: true
+  # 默认拒绝 Web 下发或上传带 console:/op: 的菜单动作，降低同步令牌泄漏的影响
+  allow-remote-console-actions: false
+  # 仅限可信内网调试；公网服务必须使用 HTTPS
+  allow-insecure-http: false

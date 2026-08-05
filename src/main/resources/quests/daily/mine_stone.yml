@@ -1,0 +1,13 @@
+# 每日任务示例
+id: "daily_mine_stone"
+name: "§e石匠学徒"
+description: "挖掘 64 个石头"
+type: "DAILY"
+experience: 50
+priority: 1
+
+objectives:
+  - type: "BLOCK_BREAK"
+    target: "STONE"
+    amount: 64
+

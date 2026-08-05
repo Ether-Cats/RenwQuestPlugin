@@ -1,0 +1,11 @@
+target/
+node_modules/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.env
+docker/.env
+*.log
+web/node_modules/

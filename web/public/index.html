@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>siyuan 思渊菜单管理</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">SY</span><span>siyuan 思渊菜单管理</span></div>
+    <div class="toolbar">
+      <span id="saveState" class="save-state">未载入菜单</span>
+      <button id="aiButton" type="button" class="ai-button hidden">AI 草稿</button>
+      <button id="logoutButton" type="button">退出登录</button>
+      <button id="importButton" type="button">导入</button>
+      <button id="exportButton" type="button">导出</button>
+      <button id="saveButton" type="button" class="primary">保存版本</button>
+      <button id="publishButton" type="button" class="publish">发布</button>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <aside class="sidebar">
+      <div class="sidebar-heading"><h2>服务器</h2><button id="addServerButton" class="icon-button" title="添加服务器">+</button></div>
+      <div id="serverList" class="entity-list"></div>
+      <div class="sidebar-heading menu-heading"><h2>菜单</h2><button id="addMenuButton" class="icon-button" title="新建菜单">+</button></div>
+      <div id="menuList" class="entity-list"></div>
+    </aside>
+
+    <section class="workspace">
+      <div id="emptyState" class="empty-state">
+        <strong>选择或创建一个菜单</strong>
+        <span>服务器和菜单版本会独立保存，发布后才会提供给游戏服同步。</span>
+      </div>
+      <div id="editor" class="editor hidden">
+        <div class="editor-header">
+          <div>
+            <div class="eyebrow" id="serverLabel"></div>
+            <input id="menuTitle" class="title-input" maxlength="128" aria-label="菜单标题">
+          </div>
+          <div class="version-box">
+            <label for="versionSelect">版本</label>
+            <select id="versionSelect"></select>
+            <span id="publishedBadge" class="badge"></span>
+          </div>
+        </div>
+
+        <div class="editor-layout">
+          <div class="canvas-panel">
+            <div class="canvas-toolbar">
+              <label>行数 <select id="rowCount"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option></select></label>
+              <label>打开权限 <input id="menuPermission" maxlength="128" placeholder="留空表示公开"></label>
+            </div>
+            <div id="menuGrid" class="menu-grid" aria-label="菜单格子"></div>
+            <p class="canvas-caption">单击格子编辑；拖动已有物品可交换位置。</p>
+          </div>
+
+          <aside class="inspector">
+            <div id="slotEmpty" class="slot-empty">选择一个格子</div>
+            <form id="itemForm" class="hidden">
+              <div class="inspector-title"><h3>格子 <span id="slotNumber"></span></h3><button id="deleteItemButton" type="button" class="danger-text">清空</button></div>
+              <label>材质<input id="itemMaterial" list="materials" maxlength="64" placeholder="NETHER_STAR"></label>
+              <datalist id="materials"><option value="STONE"><option value="PAPER"><option value="BOOK"><option value="CHEST"><option value="EMERALD"><option value="DIAMOND"><option value="NETHER_STAR"><option value="PLAYER_HEAD"><option value="BARRIER"></datalist>
+              <label>数量<input id="itemAmount" type="number" min="1" max="64"></label>
+              <label>显示名称<input id="itemName" maxlength="256" placeholder="&e菜单物品"></label>
+              <label>描述<textarea id="itemLore" rows="5" placeholder="每行一条"></textarea></label>
+              <label>左键动作<textarea id="leftActions" rows="4" placeholder="每行一条，例如 command:spawn"></textarea></label>
+              <label>右键动作<textarea id="rightActions" rows="4" placeholder="每行一条，例如 close"></textarea></label>
+              <label>任意点击动作<textarea id="allActions" rows="3" placeholder="仅在对应左右键未配置时执行"></textarea></label>
+              <label class="checkbox-label"><input id="itemGlow" type="checkbox"> 发光效果</label>
+              <label>头颅所有者<input id="itemSkullOwner" maxlength="64" placeholder="仅 PLAYER_HEAD 使用"></label>
+            </form>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="credentialDialog">
+    <form method="dialog" id="credentialForm" class="dialog-form">
+      <h2>登录管理服务</h2>
+      <label>账号<input id="usernameInput" type="text" minlength="3" maxlength="64" pattern="[A-Za-z0-9_.@-]+" autocomplete="username" required></label>
+      <label>密码<input id="passwordInput" type="password" minlength="12" maxlength="256" autocomplete="current-password" required></label>
+      <div id="credentialError" class="form-error"></div>
+      <div class="dialog-actions"><button value="login" class="primary">登录</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="entityDialog">
+    <form method="dialog" id="entityForm" class="dialog-form">
+      <h2 id="entityDialogTitle"></h2>
+      <label>标识<input id="entityKey" pattern="[a-z0-9][a-z0-9_-]{0,63}" required></label>
+      <label>显示名称<input id="entityName" maxlength="128" required></label>
+      <div class="dialog-actions"><button value="cancel">取消</button><button value="confirm" class="primary">创建</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="importDialog">
+    <form method="dialog" id="importForm" class="dialog-form wide-dialog">
+      <h2>导入菜单</h2>
+      <label>格式<select id="importFormat"><option value="yaml">DeluxeMenus YAML</option><option value="json">siyuan JSON</option></select></label>
+      <label>内容<textarea id="importSource" rows="18" required></textarea></label>
+      <div class="dialog-actions"><button value="cancel">取消</button><button value="confirm" class="primary">载入编辑器</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="aiDialog">
+    <form method="dialog" id="aiForm" class="dialog-form wide-dialog ai-dialog-form">
+      <h2>AI 草稿</h2>
+      <label>草稿类型<select id="aiKind"><option value="task">任务配置</option><option value="menu">当前菜单</option></select></label>
+      <label id="aiTaskTypeField">任务类型<select id="aiTaskType"><option value="">由 AI 判断</option><option value="DAILY">DAILY 每日</option><option value="WEEKLY">WEEKLY 每周</option><option value="SEASONAL">SEASONAL 赛季</option><option value="STORY">STORY 剧情</option><option value="CHALLENGE">CHALLENGE 挑战</option></select></label>
+      <label>需求<textarea id="aiPrompt" rows="6" maxlength="2000" required placeholder="例如：做一个每天挖 32 个铁矿石的任务，给 60 通行证经验和 30 金币"></textarea></label>
+      <div id="aiResultPanel" class="ai-result hidden">
+        <label>建议位置<input id="aiSuggestedPath" readonly></label>
+        <label>草稿<textarea id="aiResult" rows="14" readonly></textarea></label>
+        <p id="aiResultNote" class="result-note"></p>
+      </div>
+      <div class="dialog-actions">
+        <button value="cancel">关闭</button>
+        <button id="aiCopyButton" type="button" class="hidden">复制 YAML</button>
+        <button id="aiApplyButton" type="button" class="primary hidden">载入未保存草稿</button>
+        <button value="generate" class="primary">生成草稿</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
